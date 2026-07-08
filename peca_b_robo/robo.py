@@ -94,7 +94,58 @@ def mostrar_menu(items: list) -> str | None:
         print(f"  Opcao invalida. Numeros de 1 a {len(items)} ou q para sair.")
 
 
+def modo_batch(caminho_json: str, idx: int) -> int:
+    """Preenche o outorgante idx e sai. Chamado pela Streamlit sem consola.
+
+    Return code:
+      0 = sucesso
+      1 = argumentos invalidos / JSON nao existe
+      2 = SIMN nao esta em foco
+      3 = erro durante preenchimento
+    """
+    campos = carregar_json(caminho_json)
+    items = listar_outorgantes(campos)
+    if idx < 0 or idx >= len(items):
+        print(f"ERRO: idx {idx} fora de gama. Existem {len(items)} outorgantes.")
+        return 1
+    rotulo, _tipo, outorgante = items[idx]
+    print(f"Vou preencher: {rotulo} - {outorgante.get('nome', '?')}")
+
+    contagem_decrescente(8, "\nAlt+Tab AGORA para o form do SIMN.")
+
+    if not verificar_foco_simn():
+        return 2
+
+    try:
+        preencher_outorgante(outorgante)
+        print("OK: form preenchido.")
+        return 0
+    except pyautogui.FailSafeException:
+        print("ABORTADO: rato ao canto superior esquerdo.")
+        return 3
+    except Exception as e:
+        print(f"ERRO: {e}")
+        return 3
+
+
 def main() -> None:
+    # Suporte a modo batch: --idx N (chamado pela Streamlit)
+    if "--idx" in sys.argv:
+        i = sys.argv.index("--idx")
+        try:
+            idx = int(sys.argv[i + 1])
+        except (IndexError, ValueError):
+            print("ERRO: --idx requer um numero inteiro.")
+            sys.exit(1)
+        # Caminho JSON: primeiro argumento (nao --idx) ou default
+        caminho = CAMINHO_JSON_DEFAULT
+        for a in sys.argv[1:]:
+            if a != "--idx" and not a.isdigit():
+                caminho = a
+                break
+        sys.exit(modo_batch(os.path.abspath(caminho), idx))
+
+    # Modo interactivo (comportamento original)
     caminho = sys.argv[1] if len(sys.argv) > 1 else CAMINHO_JSON_DEFAULT
     caminho = os.path.abspath(caminho)
 

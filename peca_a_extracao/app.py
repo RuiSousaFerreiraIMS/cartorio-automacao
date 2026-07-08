@@ -1079,49 +1079,92 @@ with c3:
         st.session_state.exportado = True
         st.success(f"Exportado para {CAMINHO_JSON}")
 with c4:
-    if st.button("🤖 Preencher SIMN →", type="primary", key="preencher_simn"):
-        # 1. Garantir que o JSON esta actualizado com o estado da UI
+    if st.button("💾 Exportar JSON", type="primary", key="preencher_simn"):
         os.makedirs(os.path.dirname(CAMINHO_JSON), exist_ok=True)
         obj.avisos = obj.validar_e_avisar()
         with open(CAMINHO_JSON, "w", encoding="utf-8") as f:
             f.write(obj.model_dump_json(indent=2))
         st.session_state.exportado = True
-
-        # 2. Lançar o robô em subprocess (nao bloqueia a UI)
-        import subprocess
-        import sys
-        caminho_robo = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "peca_b_robo", "robo.py")
-        )
-        try:
-            subprocess.Popen(
-                [sys.executable, caminho_robo, os.path.abspath(CAMINHO_JSON)],
-                creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0,
-            )
-            st.session_state.robo_lancado = True
-        except Exception as e:
-            st.error(f"Erro ao lançar o robô: {e}")
+        st.session_state.robo_lancado = True  # activa a secção "Preencher SIMN" em baixo
 
 # Instruções para a funcionária quando lança o robô
 if st.session_state.get("robo_lancado"):
     st.markdown(f"""
-    <div style="background:{WARN_BG}; border:2px solid {WARN_BORDER}; border-radius:10px;
+    <div style="background:#F0F9FF; border:2px solid #7DD3FC; border-radius:10px;
                 padding:16px 20px; margin-top:12px;">
-      <div style="font-size:14px; font-weight:700; color:{WARN_LABEL};
+      <div style="font-size:14px; font-weight:700; color:#0369A1;
                   text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px;">
-        ⚡ Robô lançado — como usar
+        🤖 Preencher SIMN — instruções
       </div>
-      <ol style="margin:0 0 0 20px; color:{WARN_TEXT}; font-size:13px; line-height:1.7;">
-        <li>Vai à janela preta do robô que acabou de aparecer — mostra um <b>menu</b> com os outorgantes.</li>
-        <li>No <b>SIMN</b>: cria a Nova Escritura, escolhe o tipo, clica <b>Adicionar Vendedor(es) → Novo Outorgante Singular</b>. Form abre.</li>
-        <li>Clica no campo <b>Nº Contribuinte</b> do form.</li>
-        <li>Alt+Tab à janela do robô, escreve o <b>número</b> do outorgante que queres preencher (ex: 1) e Enter.</li>
-        <li>Contagem de 5 segundos → Alt+Tab ao SIMN → robô preenche.</li>
-        <li>Revê, clica <b>OK</b> no form. Volta ao menu do robô para o próximo outorgante.</li>
-        <li>No fim: revê tudo no SIMN e clica <b>Gravar</b> à mão.</li>
-      </ol>
-      <div style="font-size:11px; color:{WARN_TEXT}; margin-top:8px; font-style:italic;">
-        Emergência: rato para o canto superior esquerdo. Ou fecha a janela preta do robô.
+      <div style="font-size:13px; color:#075985; line-height:1.7;">
+        <b>Para cada outorgante:</b>
+        <ol style="margin:6px 0 0 20px;">
+          <li>No <b>SIMN</b>: clica em <b>Adicionar</b> (Vendedor/Comprador/etc.) → <b>Novo Outorgante Singular</b> → form abre</li>
+          <li>Clica no campo <b>Nº Contribuinte</b> do form</li>
+          <li>Volta aqui, clica no botão azul do outorgante que queres preencher</li>
+          <li>Contagem 8s → Alt+Tab ao SIMN → robô preenche sozinho</li>
+          <li>Revê, clica <b>OK</b> no form do SIMN, passa ao próximo</li>
+        </ol>
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Construir a lista de outorgantes/partilhantes
+    def _lista_para_botoes(cv_obj):
+        items = []
+        for tipo, lista_attr in [
+            ("Vendedor", "vendedores"), ("Comprador", "compradores"),
+            ("Doador", "doadores"), ("Donatário", "donatarios"),
+            ("Herdeiro", "herdeiros"), ("Partilhante", "partilhantes"),
+        ]:
+            lista = getattr(cv_obj, lista_attr, None) or []
+            for i, o in enumerate(lista, 1):
+                items.append((f"{tipo} {i}", o))
+        # autor_heranca (habilitacao/partilha)
+        autor = getattr(cv_obj, "autor_heranca", None)
+        if autor:
+            items.append(("Autor da Herança", autor))
+        return items
+
+    outorgantes_disponiveis = _lista_para_botoes(obj)
+    if outorgantes_disponiveis:
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        for idx, (rotulo, outorgante) in enumerate(outorgantes_disponiveis):
+            c1, c2 = st.columns([3, 1])
+            with c1:
+                st.markdown(
+                    f"**{rotulo}**  ·  {outorgante.nome or '?'}  ·  NIF `{outorgante.nif or '?'}`"
+                )
+            with c2:
+                if st.button(f"▶ Preencher", key=f"preench_btn_{idx}", use_container_width=True):
+                    import subprocess
+                    import sys as _sys
+                    caminho_robo = os.path.abspath(
+                        os.path.join(os.path.dirname(__file__), "..", "peca_b_robo", "robo.py")
+                    )
+                    # CREATE_NO_WINDOW = 0x08000000 (sem consola visível)
+                    with st.spinner(f"Robô a preencher {rotulo}... Alt+Tab para o SIMN nos próximos 8s."):
+                        try:
+                            resultado = subprocess.run(
+                                [_sys.executable, caminho_robo, "--idx", str(idx),
+                                 os.path.abspath(CAMINHO_JSON)],
+                                creationflags=0x08000000,
+                                capture_output=True, text=True, timeout=90,
+                            )
+                            if resultado.returncode == 0:
+                                st.success(f"✓ {rotulo} preenchido! Revê no SIMN e clica OK.")
+                            elif resultado.returncode == 2:
+                                st.error(
+                                    f"❌ SIMN não estava em foco quando a contagem terminou. "
+                                    f"Repete: clica no Nº Contribuinte do form no SIMN, "
+                                    f"volta e clica ▶ Preencher outra vez."
+                                )
+                            else:
+                                st.error(
+                                    f"❌ Erro do robô. Output:\n\n"
+                                    f"```\n{resultado.stdout[-500:]}\n{resultado.stderr[-500:]}\n```"
+                                )
+                        except subprocess.TimeoutExpired:
+                            st.error("❌ Robô demorou mais de 90s. Provavelmente ficou preso — abre nova PowerShell e mata processos python.")
+                        except Exception as e:
+                            st.error(f"❌ Erro ao lançar robô: {e}")
