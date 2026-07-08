@@ -54,10 +54,15 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
       14. Morada Concelho           (DROPDOWN, saltar - funcionaria)
       15. Morada Freguesia          (DROPDOWN, saltar - funcionaria)
       16. Morada Pais               (DROPDOWN, saltar - funcionaria)
-      17. Estado Civil              (DROPDOWN por letra) <- selecionamos
-      18. Regime                    (DROPDOWN por letra, so casado)
-      19. NIF Conjuge               (texto, so ativo se casado) <- escrevemos
-      20. Nome Conjuge              (texto, SIMN puxa da base)
+      17. Estado Civil              (DROPDOWN por letra) <- selecionamos, PARAMOS aqui
+      18. Regime                    (DROPDOWN, so casado - FUNCIONARIA)
+   19-21. *** 3 STOPS FANTASMA ***  (provaveis botoes; so aparecem com casado)
+      22. NIF Conjuge               (texto, so ativo se casado - FUNCIONARIA)
+      23. Nome Conjuge              (texto, SIMN puxa da base)
+    NOTA: stops 18-23 mapeados pelo calibrador com Estado Civil=Casado pre-def.
+    O NIF Conjuge esta no stop 22 (nao 19); ha 3 stops escondidos entre o Regime
+    e ele. Alem disso os campos so ativam ao CONFIRMAR o Estado Civil. Por isso
+    o robo para no Estado Civil e a funcionaria completa Regime + NIF Conjuge.
 
     REGRA DE OURO (aprendida no video 150041): NUNCA escrever com escrever()
     num DROPDOWN. Despejar uma string longa num combo Java Swing dispara o
@@ -108,37 +113,30 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     tab(3)
 
     # 17. Estado Civil (dropdown de letra unica - so 1 opcao por letra, seguro)
-    # IMPORTANTE: escolher "Casado" ATIVA os campos Regime / NIF Conjuge / Nome
-    # Conj. (estao cinzentos ate la). Essa ativacao e um evento assincrono do
-    # SIMN. Se tabarmos logo, os campos ainda estao desativados e o Tab SALTA-OS
-    # (foi o que aconteceu: Regime e NIF Conjuge ficaram vazios). Por isso
-    # esperamos um pouco depois de escolher, para o SIMN ativar os campos.
     ec_letra = {
         "solteiro": "s", "casado": "c", "divorciado": "d",
         "viuvo": "v", "uniao_de_facto": "u",
     }.get(str(o.get("estado_civil", "")).lower(), "")
     if ec_letra:
         dropdown_por_letra(ec_letra)
-        time.sleep(0.6)  # deixar o SIMN ativar Regime / NIF Conjuge / Nome Conj.
-    tab()
 
-    # 18. Regime de Bens (so se casado)
+    # PARAMOS AQUI de proposito. Regime, NIF Conjuge e Nome Conj. ficam para a
+    # funcionaria. Porque:
+    #  (1) Estes campos so ficam ATIVOS quando o Estado Civil e CONFIRMADO
+    #      (perde o foco), nao ao carregar na letra. O robo nao consegue
+    #      confirmar sem arriscar accionar um botao (Enter -> OK/Cancelar), e um
+    #      Tab imediato salta-os enquanto ainda estao cinzentos.
+    #  (2) O calibrador (com Casado pre-definido) mostrou que, mesmo ativos, nao
+    #      estao onde o codigo assumia: Regime=stop18, mas NIF Conjuge=stop22 e
+    #      Nome Conj=stop23 (ha 3 stops fantasma - provaveis botoes - entre o
+    #      Regime e o NIF Conjuge). Automatizar isto com fiabilidade exige
+    #      tentativa-e-erro no cartorio; nao compensa por 2 campos.
+    # A funcionaria ve o Regime e o NIF do Conjuge na Streamlit e mete-os a mao.
     if o.get("estado_civil") == "casado":
-        rb_letra = {
-            "comunhao_de_adquiridos": "c",
-            "comunhao_geral": "c",  # pode precisar de 2x
-            "separacao_de_bens": "s",
-        }.get(str(o.get("regime_bens", "")).lower(), "")
-        if rb_letra:
-            dropdown_por_letra(rb_letra)
-    tab()
+        print("  -> CASADO: escolhe o Regime e escreve o NIF do Conjuge a mao")
+        print("     (estao na Streamlit). O SIMN so ativa esses campos depois de")
+        print("     confirmares o Estado Civil - o robo nao os toca.")
 
-    # 19. NIF Conjuge (texto, so ativo se casado)
-    if o.get("conjuge_de_nif"):
-        escrever(o["conjuge_de_nif"])
-    tab()
-
-    # 19. Nome Conj. - deixar em branco, SIMN puxa da base pelo NIF
     return "preenchido"
 
 
