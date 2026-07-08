@@ -707,7 +707,7 @@ def editar_bem(indice, b):
         </div>
         """, unsafe_allow_html=True)
         b.codigo_simn = _vazio_para_none(
-            st.text_input("", b.codigo_simn or "",
+            st.text_input("Código SIMN", b.codigo_simn or "",
                           placeholder="Ex: 100108-U-1948",
                           key=k("simn"), label_visibility="collapsed")
         )
