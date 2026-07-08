@@ -108,21 +108,28 @@ Contagem decrescente de 5s: Alt+Tab de volta ao SIMN. O robô preenche.
 
 Emergência: mover rato para canto superior esquerdo.
 
-## 7. Criar atalhos no desktop para as funcionárias
+## 7. Criar atalho no desktop para as funcionárias
 
-Cria um ficheiro `iniciar_app.bat` na raiz do repositório com o conteúdo:
+O repositório já traz dois launchers:
 
-```bat
-@echo off
-cd /d "%~dp0"
-call .venv\Scripts\activate.bat
-cd peca_a_extracao
-python -m streamlit run app.py
-pause
+- **`iniciar_app.bat`** — arranca a app **com consola visível** (útil para debug e ver erros)
+- **`cartorio.vbs`** — arranca a app **sem consola** (limpo, para produção)
+
+Criar automaticamente um atalho no Desktop apontando para o `cartorio.vbs`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File criar_atalho_desktop.ps1
 ```
 
-Cria atalho no desktop apontando para este `.bat`. Duplo-clique arranca
-a app inteira. Fecha a janela = pára tudo.
+Isto cria `Cartorio Escrituras.lnk` no Desktop do utilizador actual.
+Duplo-clique = browser abre em http://localhost:8501, sem janela preta.
+
+Para parar a app depois de arrancada (sem consola visível): fechar todas
+as janelas do browser Streamlit E terminar o processo `streamlit`/`python`
+no Gestor de Tarefas.
+
+Se algo correr mal e o browser não abrir, correr o `iniciar_app.bat` em
+vez do VBS para ver a mensagem de erro na consola.
 
 ## Actualizações futuras
 
