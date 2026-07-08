@@ -149,31 +149,83 @@ def contagem_decrescente(segundos: int = 5, mensagem: str = "") -> None:
         time.sleep(1)
 
 
-def janela_em_foco_titulo() -> str:
-    """Devolve o titulo da janela actualmente em foco. '' se falhar."""
+def _info_janela_focada() -> tuple[str, str, str]:
+    """Devolve (titulo, class_name, processo) da janela em foco. Strings vazias se falhar.
+
+    Cobre 3 formas de identificar a janela porque:
+      - Diálogos Java Swing muitas vezes tem titulo="" (não expõem via Win32)
+      - Mas a class_name começa por "SunAwt" (SunAwtFrame, SunAwtDialog, etc.)
+      - E o processo é java.exe / javaw.exe
+    Qualquer um destes basta para saber que estamos numa janela SIMN.
+    """
     try:
         import ctypes
+        from ctypes import wintypes
         user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+
         hwnd = user32.GetForegroundWindow()
-        buf = ctypes.create_unicode_buffer(512)
-        user32.GetWindowTextW(hwnd, buf, 512)
-        return buf.value or ""
-    except Exception:
-        return ""
+
+        titulo_buf = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(hwnd, titulo_buf, 512)
+        titulo = titulo_buf.value or ""
+
+        classe_buf = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, classe_buf, 256)
+        classe = classe_buf.value or ""
+
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        processo = ""
+        # PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = kernel32.OpenProcess(0x1000, False, pid.value)
+        if handle:
+            try:
+                proc_buf = ctypes.create_unicode_buffer(1024)
+                tamanho = wintypes.DWORD(1024)
+                if kernel32.QueryFullProcessImageNameW(handle, 0, proc_buf, ctypes.byref(tamanho)):
+                    processo = proc_buf.value.split("\\")[-1]
+            finally:
+                kernel32.CloseHandle(handle)
+
+        return titulo, classe, processo
+    except Exception as e:
+        return "", "", f"(erro: {e})"
+
+
+def janela_em_foco_titulo() -> str:
+    """Compatibilidade: devolve so o titulo."""
+    return _info_janela_focada()[0]
 
 
 def verificar_foco_simn() -> bool:
-    """Devolve True se a janela em foco parece ser do SIMN. Imprime aviso claro se nao."""
-    titulo = janela_em_foco_titulo()
-    if "simn" in titulo.lower() or "vendedor" in titulo.lower() or "comprador" in titulo.lower() \
-       or "doador" in titulo.lower() or "donatario" in titulo.lower() or "bem" in titulo.lower() \
-       or "outorgante" in titulo.lower():
+    """Devolve True se a janela em foco pertence ao SIMN.
+
+    Aceita 3 sinais (qualquer um serve):
+      - Titulo contem palavras-chave do SIMN
+      - Class name comeca por "SunAwt" (Java Swing)
+      - Processo e java.exe / javaw.exe
+    """
+    titulo, classe, processo = _info_janela_focada()
+    tlow = titulo.lower()
+
+    palavras_titulo = ("simn", "vendedor", "comprador", "doador", "donatario",
+                       "bem", "outorgante", "herdeiro", "partilhante", "escritura")
+    ok_titulo = any(p in tlow for p in palavras_titulo)
+    ok_classe = classe.startswith("SunAwt")
+    ok_processo = processo.lower() in ("java.exe", "javaw.exe")
+
+    if ok_titulo or ok_classe or ok_processo:
         return True
+
     print()
     print("=" * 60)
     print(f"  ⚠️  SIMN NAO ESTA EM FOCO!")
-    print(f"  Janela actual: {titulo!r}")
+    print(f"  Janela actual:")
+    print(f"    titulo   = {titulo!r}")
+    print(f"    classe   = {classe!r}")
+    print(f"    processo = {processo!r}")
     print(f"  Robo aborta para nao escrever no sitio errado.")
-    print(f"  Solucao: focar manualmente o form do SIMN e reiniciar o menu.")
+    print(f"  Solucao: Alt+Tab ao form SIMN antes do countdown terminar.")
     print("=" * 60)
     return False
