@@ -1109,17 +1109,19 @@ if st.session_state.get("robo_lancado"):
                 padding:16px 20px; margin-top:12px;">
       <div style="font-size:14px; font-weight:700; color:{WARN_LABEL};
                   text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px;">
-        ⚡ Robô lançado — o que fazer agora
+        ⚡ Robô lançado — como usar
       </div>
       <ol style="margin:0 0 0 20px; color:{WARN_TEXT}; font-size:13px; line-height:1.7;">
-        <li>Muda para o <b>SIMN</b> (Alt+Tab) e cria <b>Nova Escritura</b> se ainda não o fizeste.</li>
-        <li>Clica no <b>primeiro campo</b> do form (Nº Contribuinte).</li>
-        <li>Confere a janela preta do robô (deve aparecer em cima) — vai contar 5 segundos.</li>
-        <li>Deixa o robô preencher. <b>Não mexas no teclado nem rato.</b></li>
-        <li>Quando terminar, revê tudo no SIMN e clica <b>Gravar</b>.</li>
+        <li>Vai à janela preta do robô que acabou de aparecer — mostra um <b>menu</b> com os outorgantes.</li>
+        <li>No <b>SIMN</b>: cria a Nova Escritura, escolhe o tipo, clica <b>Adicionar Vendedor(es) → Novo Outorgante Singular</b>. Form abre.</li>
+        <li>Clica no campo <b>Nº Contribuinte</b> do form.</li>
+        <li>Alt+Tab à janela do robô, escreve o <b>número</b> do outorgante que queres preencher (ex: 1) e Enter.</li>
+        <li>Contagem de 5 segundos → Alt+Tab ao SIMN → robô preenche.</li>
+        <li>Revê, clica <b>OK</b> no form. Volta ao menu do robô para o próximo outorgante.</li>
+        <li>No fim: revê tudo no SIMN e clica <b>Gravar</b> à mão.</li>
       </ol>
       <div style="font-size:11px; color:{WARN_TEXT}; margin-top:8px; font-style:italic;">
-        Para parar o robô em emergência: leva o rato para o canto superior esquerdo do ecrã.
+        Emergência: rato para o canto superior esquerdo. Ou fecha a janela preta do robô.
       </div>
     </div>
     """, unsafe_allow_html=True)
