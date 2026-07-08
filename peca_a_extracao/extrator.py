@@ -257,7 +257,10 @@ def _chamar_claude(texto: str, prompt_sistema: str, modelo: str | None = None) -
 
     # Nao passamos temperature: os modelos Claude mais recentes (Opus 4.8, Sonnet 5)
     # rejeitam esse parametro. Para extracao o resultado ja e estavel sem ele.
-    resposta = client.messages.create(
+    # timeout=60 + sem retries: por defeito o SDK espera ate 10 min e re-tenta 2x,
+    # o que parece "pendurado" se a rede bloquear api.anthropic.com. Assim o erro
+    # aparece em <1 min e diz-nos o que se passa.
+    resposta = client.with_options(timeout=60.0, max_retries=0).messages.create(
         model=modelo,
         max_tokens=8000,
         system=(
