@@ -108,12 +108,18 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     tab(3)
 
     # 17. Estado Civil (dropdown de letra unica - so 1 opcao por letra, seguro)
+    # IMPORTANTE: escolher "Casado" ATIVA os campos Regime / NIF Conjuge / Nome
+    # Conj. (estao cinzentos ate la). Essa ativacao e um evento assincrono do
+    # SIMN. Se tabarmos logo, os campos ainda estao desativados e o Tab SALTA-OS
+    # (foi o que aconteceu: Regime e NIF Conjuge ficaram vazios). Por isso
+    # esperamos um pouco depois de escolher, para o SIMN ativar os campos.
     ec_letra = {
         "solteiro": "s", "casado": "c", "divorciado": "d",
         "viuvo": "v", "uniao_de_facto": "u",
     }.get(str(o.get("estado_civil", "")).lower(), "")
     if ec_letra:
         dropdown_por_letra(ec_letra)
+        time.sleep(0.6)  # deixar o SIMN ativar Regime / NIF Conjuge / Nome Conj.
     tab()
 
     # 18. Regime de Bens (so se casado)
