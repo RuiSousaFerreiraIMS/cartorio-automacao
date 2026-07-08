@@ -8,40 +8,45 @@ REM ============================================================
 cd /d "%~dp0"
 
 REM Verificar venv
-if not exist ".venv\Scripts\activate.bat" (
-    echo.
-    echo ERRO: Ambiente Python nao encontrado.
-    echo Corre o setup de deploy primeiro (ver DEPLOY.md).
-    echo.
-    pause
-    exit /b 1
-)
+if not exist ".venv\Scripts\activate.bat" goto :sem_venv
 
-REM Verificar chave da API
-if "%GROQ_API_KEY%"=="" (
-    if "%GOOGLE_API_KEY%"=="" (
-        echo.
-        echo ERRO: Chave da API nao configurada.
-        echo Corre no PowerShell UMA VEZ ^(como Utilizador^):
-        echo.
-        echo   [System.Environment]::SetEnvironmentVariable("GROQ_API_KEY", "gsk_...", "User"^)
-        echo.
-        echo Depois fecha e reabre esta janela.
-        pause
-        exit /b 1
-    )
-)
+REM Verificar chave da API - pelo menos uma tem de existir
+if "%GROQ_API_KEY%"=="" if "%GOOGLE_API_KEY%"=="" goto :sem_chave
 
+REM Ambiente pronto, arrancar
 call .venv\Scripts\activate.bat
 cd peca_a_extracao
 
 echo.
 echo ============================================================
 echo  A abrir a app no browser em http://localhost:8501
-echo  Para parar, fecha esta janela ou carrega Ctrl+C.
+echo  Para parar: fecha esta janela ou Ctrl+C.
 echo ============================================================
 echo.
 
 python -m streamlit run app.py
+goto :fim
 
+
+:sem_venv
+echo.
+echo ERRO: Ambiente Python nao encontrado.
+echo Corre o setup de deploy primeiro. Ver DEPLOY.md
+echo.
+pause
+exit /b 1
+
+
+:sem_chave
+echo.
+echo ERRO: Chave da API nao configurada.
+echo Setar no PowerShell como User env var:
+echo   [System.Environment]::SetEnvironmentVariable('GROQ_API_KEY', 'gsk_...', 'User'^)
+echo Depois fecha esta janela e a que setaste, abre uma nova, e volta a correr.
+echo.
+pause
+exit /b 1
+
+
+:fim
 pause
