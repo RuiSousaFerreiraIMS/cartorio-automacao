@@ -251,7 +251,9 @@ def _chamar_claude(texto: str, prompt_sistema: str, modelo: str | None = None) -
     """
     import anthropic  # import tardio: so obriga a instalar quem usa Claude
     modelo = modelo or os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    # .strip(): se a chave foi setada com um \n ou espacos no fim, o SDK rebenta
+    # com "Illegal header value" antes de tocar na rede. Limpamos por seguranca.
+    client = anthropic.Anthropic(api_key=(os.environ.get("ANTHROPIC_API_KEY") or "").strip())
     _log(f"A chamar Claude (modelo: {modelo}, ~{len(texto)} chars de input)...")
     t0 = time.time()
 
