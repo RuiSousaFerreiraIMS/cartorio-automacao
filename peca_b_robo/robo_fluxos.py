@@ -30,19 +30,23 @@ from robo_forms import (
 
 
 # -----------------------------------------------------------------------------
-# Coordenadas / Imagens (a preencher com screenshots do cartorio)
+# Coordenadas / Imagens (paths absolutos para nao depender do CWD)
 # -----------------------------------------------------------------------------
-# Cada botao aqui devia apontar para um PNG pequeno com o botao recortado.
-# Enquanto nao temos os PNGs, o fluxo vai imprimir "TODO: clicar aqui" e parar.
-BTN_ADICIONAR_VENDEDOR = "imagens/btn_adicionar_vendedor.png"
-BTN_ADICIONAR_COMPRADOR = "imagens/btn_adicionar_comprador.png"
-BTN_ADICIONAR_DOADOR = "imagens/btn_adicionar_doador.png"
-BTN_ADICIONAR_DONATARIO = "imagens/btn_adicionar_donatario.png"
-BTN_ADICIONAR_BEM = "imagens/btn_adicionar_bem.png"
-BTN_NOVO_OUTORGANTE_SINGULAR = "imagens/btn_novo_singular.png"
-BTN_NOVO_DUC = "imagens/btn_novo_duc.png"
-BTN_NOVA_RELACAO = "imagens/btn_nova_relacao.png"
-BTN_OK_DIALOGO = "imagens/btn_ok.png"
+import os
+_PASTA_IMAGENS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "imagens")
+
+def _img(nome: str) -> str:
+    return os.path.join(_PASTA_IMAGENS, nome)
+
+BTN_ADICIONAR_VENDEDOR = _img("btn_adicionar_vendedor.png")
+BTN_ADICIONAR_COMPRADOR = _img("btn_adicionar_comprador.png")
+BTN_ADICIONAR_DOADOR = _img("btn_adicionar_doador.png")
+BTN_ADICIONAR_DONATARIO = _img("btn_adicionar_donatario.png")
+BTN_ADICIONAR_BEM = _img("btn_adicionar_bem.png")
+BTN_NOVO_OUTORGANTE_SINGULAR = _img("btn_novo_singular.png")
+BTN_NOVO_DUC = _img("btn_novo_duc.png")
+BTN_NOVA_RELACAO = _img("btn_nova_relacao.png")
+BTN_OK_DIALOGO = _img("btn_ok.png")
 
 
 # -----------------------------------------------------------------------------

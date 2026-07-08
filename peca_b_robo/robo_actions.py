@@ -61,14 +61,34 @@ def dropdown_por_letra(primeira_letra: str) -> None:
 # -----------------------------------------------------------------------------
 # Leitura de estado
 # -----------------------------------------------------------------------------
+_SENTINELA_CLIPBOARD = "___ROBO_SENTINELA_VAZIO___"
+
+
+def _limpar_clipboard() -> None:
+    """Poe uma sentinela no clipboard. Se depois de Ctrl+A/Ctrl+C esta la ainda,
+    e' porque o campo focado estava vazio (Ctrl+C num campo vazio nao mexe no clipboard).
+    """
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-Command", f"Set-Clipboard -Value '{_SENTINELA_CLIPBOARD}'"],
+            timeout=3, check=False,
+        )
+    except Exception:
+        pass
+
+
 def ler_campo_atual() -> str:
     """Le o conteudo do campo focado via clipboard. Devolve '' se vazio.
-    Sobrescreve temporariamente o clipboard do utilizador.
+
+    Truque: metemos uma sentinela no clipboard PRIMEIRO. Depois Ctrl+A + Ctrl+C.
+    Se o campo tem texto, o clipboard passa a ter esse texto.
+    Se o campo esta vazio, o Ctrl+C nao substitui a sentinela e ficamos a saber.
     """
+    _limpar_clipboard()
     pyautogui.hotkey("ctrl", "a")
     time.sleep(0.05)
     pyautogui.hotkey("ctrl", "c")
-    time.sleep(0.15)
+    time.sleep(0.2)  # tempo para clipboard actualizar
     try:
         conteudo = subprocess.check_output(
             ["powershell", "-NoProfile", "-Command", "Get-Clipboard"],
@@ -77,6 +97,10 @@ def ler_campo_atual() -> str:
     except Exception:
         conteudo = ""
     pyautogui.press("end")  # deselecionar
+
+    # Se a sentinela ainda la esta, o campo estava vazio.
+    if conteudo == _SENTINELA_CLIPBOARD:
+        return ""
     return conteudo
 
 

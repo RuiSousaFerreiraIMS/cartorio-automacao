@@ -1,11 +1,11 @@
-"""
+r"""
 Peca B - Robo (entry point).
 
 Le campos.json e despacha para o fluxo apropriado (CV, Doacao, Habilitacao, Partilha).
 
 Uso:
-  python robo.py                          # le ..\partilha\campos.json
-  python robo.py C:\path\to\campos.json   # le ficheiro custom
+  python robo.py                          # le ../partilha/campos.json
+  python robo.py C:/path/to/campos.json   # le ficheiro custom
 
 Pre-requisitos:
   - SIMN aberto e no ecra principal da escritura ja criada (Nova Escritura +
@@ -13,7 +13,7 @@ Pre-requisitos:
   - pyautogui instalado (pip install pyautogui)
 
 Instalar (uma vez, no PC do cartorio):
-  pip install pyautogui pywinauto
+  pip install pyautogui pywinauto opencv-python
 """
 
 from __future__ import annotations
