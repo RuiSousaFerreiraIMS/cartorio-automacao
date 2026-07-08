@@ -10,8 +10,8 @@ cd /d "%~dp0"
 REM Verificar venv
 if not exist ".venv\Scripts\activate.bat" goto :sem_venv
 
-REM Verificar chave da API - pelo menos uma tem de existir
-if "%GROQ_API_KEY%"=="" if "%GOOGLE_API_KEY%"=="" goto :sem_chave
+REM Verificar chave da API - pelo menos uma tem de existir (Groq, Google ou Anthropic)
+if "%GROQ_API_KEY%"=="" if "%GOOGLE_API_KEY%"=="" if "%ANTHROPIC_API_KEY%"=="" goto :sem_chave
 
 REM Ambiente pronto, arrancar
 call .venv\Scripts\activate.bat

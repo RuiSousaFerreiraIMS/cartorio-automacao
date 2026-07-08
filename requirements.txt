@@ -1,6 +1,7 @@
 # Peça A (extração + interface)
 google-genai
 groq
+anthropic       # provedor Claude (LLM_PROVIDER=claude)
 python-docx
 pydantic
 streamlit

@@ -223,19 +223,72 @@ def _chamar_groq(texto: str, prompt_sistema: str, modelo: str | None = None) -> 
     return json.loads(texto_resp)
 
 
+def _extrair_json(texto: str) -> str:
+    """Isola o objeto JSON de uma resposta que possa vir com ``` ou texto a envolver.
+
+    Claude devolve JSON puro quando instruido, mas isto e uma rede de seguranca
+    caso apareca uma fence de markdown ou uma frase antes/depois.
+    """
+    t = texto.strip()
+    if t.startswith("```"):
+        # tira a primeira linha (``` ou ```json) e a fence de fecho
+        t = t.split("\n", 1)[1] if "\n" in t else t
+        if t.rstrip().endswith("```"):
+            t = t.rstrip()[:-3]
+        t = t.strip()
+    if not t.startswith("{"):
+        inicio, fim = t.find("{"), t.rfind("}")
+        if inicio != -1 and fim > inicio:
+            t = t[inicio:fim + 1]
+    return t
+
+
+def _chamar_claude(texto: str, prompt_sistema: str, modelo: str | None = None) -> dict:
+    """Chamada a Claude (Anthropic). Devolve o dict extraido.
+
+    Modelo por defeito: claude-haiku-4-5 (barato e preciso para extracao).
+    Trocar via env var ANTHROPIC_MODEL (ex: claude-sonnet-5, claude-opus-4-8).
+    """
+    import anthropic  # import tardio: so obriga a instalar quem usa Claude
+    modelo = modelo or os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+    _log(f"A chamar Claude (modelo: {modelo}, ~{len(texto)} chars de input)...")
+    t0 = time.time()
+
+    # Nao passamos temperature: os modelos Claude mais recentes (Opus 4.8, Sonnet 5)
+    # rejeitam esse parametro. Para extracao o resultado ja e estavel sem ele.
+    resposta = client.messages.create(
+        model=modelo,
+        max_tokens=8000,
+        system=(
+            prompt_sistema
+            + "\n\nIMPORTANTE: responde APENAS com o objeto JSON pedido, sem texto "
+              "antes ou depois e sem blocos ``` de markdown."
+        ),
+        messages=[{"role": "user", "content": texto}],
+    )
+    texto_resp = "".join(b.text for b in resposta.content if b.type == "text")
+    _log(f"  resposta recebida em {time.time()-t0:.1f}s ({len(texto_resp)} chars)")
+    return json.loads(_extrair_json(texto_resp))
+
+
 def _chamar_llm(texto: str, prompt_sistema: str, modelo: str | None = None) -> dict:
     """Dispatcher: escolhe o provedor pelo env var LLM_PROVIDER (default: gemini).
 
-    Valores aceites: 'gemini' (default), 'groq'.
+    Valores aceites: 'gemini' (default), 'groq', 'claude' (alias 'anthropic').
     """
     global ultimo_raw
     provedor = os.environ.get("LLM_PROVIDER", "gemini").lower()
     if provedor == "groq":
         dados = _chamar_groq(texto, prompt_sistema, modelo)
+    elif provedor in ("claude", "anthropic"):
+        dados = _chamar_claude(texto, prompt_sistema, modelo)
     elif provedor == "gemini":
         dados = _chamar_gemini(texto, prompt_sistema, modelo)
     else:
-        raise ValueError(f"LLM_PROVIDER desconhecido: {provedor!r}. Usar 'gemini' ou 'groq'.")
+        raise ValueError(
+            f"LLM_PROVIDER desconhecido: {provedor!r}. Usar 'gemini', 'groq' ou 'claude'."
+        )
     ultimo_raw = dados
     return dados
 

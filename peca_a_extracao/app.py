@@ -332,6 +332,9 @@ def render_sidebar(obj, nome_ficheiro):
         if provedor == "groq":
             modelo = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
             tem_chave = bool(os.environ.get("GROQ_API_KEY"))
+        elif provedor in ("claude", "anthropic"):
+            modelo = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
+            tem_chave = bool(os.environ.get("ANTHROPIC_API_KEY"))
         else:
             modelo = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
             tem_chave = bool(os.environ.get("GOOGLE_API_KEY"))
