@@ -1131,16 +1131,11 @@ if st.session_state.get("robo_lancado"):
         # Mostrar resultado persistente do ultimo run (sobrevive a reruns)
         status = st.session_state.get("ultimo_robo_status")
         if status:
-            if status["code"] == 0:
-                st.success(f"✅ **{status['rotulo']} preenchido!** Revê no SIMN e clica OK. "
-                           f"Depois avança para o próximo.")
-            elif status["code"] == 2:
-                st.error(f"❌ **SIMN não estava em foco** quando a contagem terminou. "
-                         f"Faz isto pela ordem: (1) no SIMN, clica no campo Nº Contribuinte "
-                         f"do form Vendedor(es). (2) Volta aqui e clica ▶ Preencher **outra vez**.")
-            else:
-                st.error(f"❌ Erro (código {status['code']}). Output do robô:")
-                st.code(f"{status['stdout']}\n---STDERR---\n{status['stderr']}", language="text")
+            if status.get("msg"):
+                st.info(f"🤖 {status['msg']}  \n\n**Alt+Tab para o SIMN AGORA.** "
+                        f"A janela preta vai contar 8s e depois preencher. Vê o resultado nela.")
+            elif status.get("code") == 98:
+                st.error(f"❌ Erro a lançar robô: {status['stderr']}")
             if st.button("Dispensar mensagem", key="dispensar_status"):
                 st.session_state.ultimo_robo_status = None
                 st.rerun()
@@ -1156,40 +1151,29 @@ if st.session_state.get("robo_lancado"):
                 if st.button(f"▶ Preencher", key=f"preench_btn_{idx}", use_container_width=True):
                     import subprocess
                     import sys as _sys
-                    print(f"[APP] Botao Preencher clicado: idx={idx} rotulo={rotulo!r}", flush=True)
                     caminho_robo = os.path.abspath(
                         os.path.join(os.path.dirname(__file__), "..", "peca_b_robo", "robo.py")
                     )
-                    print(f"[APP] Vou lancar: {_sys.executable} {caminho_robo} --idx {idx}", flush=True)
-                    # CREATE_NO_WINDOW = 0x08000000 (sem consola visível)
-                    with st.spinner(f"Robô a preencher {rotulo}... Alt+Tab para o SIMN nos próximos 8s."):
-                        try:
-                            env = os.environ.copy()
-                            env["PYTHONIOENCODING"] = "utf-8"
-                            resultado = subprocess.run(
-                                [_sys.executable, caminho_robo, "--idx", str(idx),
-                                 os.path.abspath(CAMINHO_JSON)],
-                                creationflags=0x08000000,
-                                capture_output=True, text=True, timeout=120,
-                                env=env, encoding="utf-8", errors="replace",
-                            )
-                            print(f"[APP] Robo terminou: code={resultado.returncode}", flush=True)
-                            print(f"[APP] stdout: {(resultado.stdout or '')[:500]}", flush=True)
-                            print(f"[APP] stderr: {(resultado.stderr or '')[:500]}", flush=True)
-                            st.session_state.ultimo_robo_status = {
-                                "rotulo": rotulo,
-                                "code": resultado.returncode,
-                                "stdout": (resultado.stdout or "")[-1500:],
-                                "stderr": (resultado.stderr or "")[-1500:],
-                            }
-                        except subprocess.TimeoutExpired:
-                            st.session_state.ultimo_robo_status = {
-                                "rotulo": rotulo, "code": 99,
-                                "stdout": "", "stderr": "Timeout (>120s). Processo preso.",
-                            }
-                        except Exception as e:
-                            st.session_state.ultimo_robo_status = {
-                                "rotulo": rotulo, "code": 98,
-                                "stdout": "", "stderr": f"Erro a lançar robô: {e}",
-                            }
+                    env = os.environ.copy()
+                    env["PYTHONIOENCODING"] = "utf-8"
+                    # CREATE_NEW_CONSOLE = 0x00000010 (janela preta visível, mostra output)
+                    # NAO bloqueia a Streamlit: usa Popen fire-and-forget
+                    try:
+                        subprocess.Popen(
+                            [_sys.executable, caminho_robo, "--idx", str(idx),
+                             os.path.abspath(CAMINHO_JSON)],
+                            creationflags=0x00000010,
+                            env=env,
+                        )
+                        st.session_state.ultimo_robo_status = {
+                            "rotulo": rotulo, "code": None,
+                            "stdout": "", "stderr": "",
+                            "msg": f"Robô lançado para {rotulo}. Olha a janela preta que apareceu.",
+                        }
+                    except Exception as e:
+                        st.session_state.ultimo_robo_status = {
+                            "rotulo": rotulo, "code": 98,
+                            "stdout": "", "stderr": f"Erro a lançar robô: {e}",
+                            "msg": None,
+                        }
                     st.rerun()

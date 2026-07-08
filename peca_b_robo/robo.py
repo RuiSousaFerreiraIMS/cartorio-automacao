@@ -103,7 +103,7 @@ def mostrar_menu(items: list) -> str | None:
 
 
 def modo_batch(caminho_json: str, idx: int) -> int:
-    """Preenche o outorgante idx e sai. Chamado pela Streamlit sem consola.
+    """Preenche o outorgante idx e sai. Chamado pela Streamlit.
 
     Return code:
       0 = sucesso
@@ -115,6 +115,7 @@ def modo_batch(caminho_json: str, idx: int) -> int:
     items = listar_outorgantes(campos)
     if idx < 0 or idx >= len(items):
         print(f"ERRO: idx {idx} fora de gama. Existem {len(items)} outorgantes.")
+        _pausa_final()
         return 1
     rotulo, _tipo, outorgante = items[idx]
     print(f"Vou preencher: {rotulo} - {outorgante.get('nome', '?')}")
@@ -122,18 +123,29 @@ def modo_batch(caminho_json: str, idx: int) -> int:
     contagem_decrescente(8, "\nAlt+Tab AGORA para o form do SIMN.")
 
     if not verificar_foco_simn():
+        _pausa_final()
         return 2
 
+    codigo = 0
     try:
         preencher_outorgante(outorgante)
-        print("OK: form preenchido.")
-        return 0
+        print("\nOK: form preenchido.")
     except pyautogui.FailSafeException:
-        print("ABORTADO: rato ao canto superior esquerdo.")
-        return 3
+        print("\nABORTADO: rato ao canto superior esquerdo.")
+        codigo = 3
     except Exception as e:
-        print(f"ERRO: {e}")
-        return 3
+        print(f"\nERRO: {e}")
+        codigo = 3
+    _pausa_final()
+    return codigo
+
+
+def _pausa_final() -> None:
+    """Impede a consola de fechar logo, para o utilizador ver o output."""
+    try:
+        input("\n[Enter para fechar esta janela...] ")
+    except (EOFError, KeyboardInterrupt):
+        pass
 
 
 def main() -> None:
