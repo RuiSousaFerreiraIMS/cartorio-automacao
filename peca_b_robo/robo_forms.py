@@ -119,6 +119,9 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     }.get(str(o.get("estado_civil", "")).lower(), "")
     if ec_letra:
         dropdown_por_letra(ec_letra)
+        tab()  # CONFIRMA o Estado Civil: o SIMN so mostra "Casado" quando o campo
+               # perde o foco. Sem este Tab, o campo fica vazio. O Tab tambem ativa
+               # o Regime/Conjuge, que a funcionaria completa a mao.
 
     # PARAMOS AQUI de proposito. Regime, NIF Conjuge e Nome Conj. ficam para a
     # funcionaria. Porque:
