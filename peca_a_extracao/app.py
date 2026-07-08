@@ -1128,6 +1128,23 @@ if st.session_state.get("robo_lancado"):
 
     outorgantes_disponiveis = _lista_para_botoes(obj)
     if outorgantes_disponiveis:
+        # Mostrar resultado persistente do ultimo run (sobrevive a reruns)
+        status = st.session_state.get("ultimo_robo_status")
+        if status:
+            if status["code"] == 0:
+                st.success(f"✅ **{status['rotulo']} preenchido!** Revê no SIMN e clica OK. "
+                           f"Depois avança para o próximo.")
+            elif status["code"] == 2:
+                st.error(f"❌ **SIMN não estava em foco** quando a contagem terminou. "
+                         f"Faz isto pela ordem: (1) no SIMN, clica no campo Nº Contribuinte "
+                         f"do form Vendedor(es). (2) Volta aqui e clica ▶ Preencher **outra vez**.")
+            else:
+                st.error(f"❌ Erro (código {status['code']}). Output do robô:")
+                st.code(f"{status['stdout']}\n---STDERR---\n{status['stderr']}", language="text")
+            if st.button("Dispensar mensagem", key="dispensar_status"):
+                st.session_state.ultimo_robo_status = None
+                st.rerun()
+
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
         for idx, (rotulo, outorgante) in enumerate(outorgantes_disponiveis):
             c1, c2 = st.columns([3, 1])
@@ -1149,22 +1166,22 @@ if st.session_state.get("robo_lancado"):
                                 [_sys.executable, caminho_robo, "--idx", str(idx),
                                  os.path.abspath(CAMINHO_JSON)],
                                 creationflags=0x08000000,
-                                capture_output=True, text=True, timeout=90,
+                                capture_output=True, text=True, timeout=120,
                             )
-                            if resultado.returncode == 0:
-                                st.success(f"✓ {rotulo} preenchido! Revê no SIMN e clica OK.")
-                            elif resultado.returncode == 2:
-                                st.error(
-                                    f"❌ SIMN não estava em foco quando a contagem terminou. "
-                                    f"Repete: clica no Nº Contribuinte do form no SIMN, "
-                                    f"volta e clica ▶ Preencher outra vez."
-                                )
-                            else:
-                                st.error(
-                                    f"❌ Erro do robô. Output:\n\n"
-                                    f"```\n{resultado.stdout[-500:]}\n{resultado.stderr[-500:]}\n```"
-                                )
+                            st.session_state.ultimo_robo_status = {
+                                "rotulo": rotulo,
+                                "code": resultado.returncode,
+                                "stdout": (resultado.stdout or "")[-1500:],
+                                "stderr": (resultado.stderr or "")[-1500:],
+                            }
                         except subprocess.TimeoutExpired:
-                            st.error("❌ Robô demorou mais de 90s. Provavelmente ficou preso — abre nova PowerShell e mata processos python.")
+                            st.session_state.ultimo_robo_status = {
+                                "rotulo": rotulo, "code": 99,
+                                "stdout": "", "stderr": "Timeout (>120s). Processo preso.",
+                            }
                         except Exception as e:
-                            st.error(f"❌ Erro ao lançar robô: {e}")
+                            st.session_state.ultimo_robo_status = {
+                                "rotulo": rotulo, "code": 98,
+                                "stdout": "", "stderr": f"Erro a lançar robô: {e}",
+                            }
+                    st.rerun()
