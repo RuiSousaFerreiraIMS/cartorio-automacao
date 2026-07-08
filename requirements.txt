@@ -1,0 +1,15 @@
+# Peca A (extracao + interface) - instalar para desenvolver
+google-genai
+groq
+python-docx
+pydantic
+streamlit
+matplotlib  # apenas para o gerar_relatorio_pai.py
+
+# Para ler .doc antigo (Word 97-2003), e preciso UM destes na maquina:
+#  - LibreOffice (recomendado): instalar a app, traz o 'soffice'
+#  - ou antiword (Linux: apt install antiword)
+# Nao sao pacotes pip; instalam-se ao nivel do sistema.
+
+# Peca B (robo) - instalar na maquina do cartorio quando la chegares
+# pywinauto

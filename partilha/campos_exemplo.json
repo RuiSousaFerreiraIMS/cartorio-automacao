@@ -1,0 +1,83 @@
+{
+  "mnemonica": "CV",
+  "data_escritura": "2026-06-22",
+  "vendedores": [
+    {
+      "nif": "222350245",
+      "nome": "PEDRO BRUNO MATIAS JULIO",
+      "e_empresa": false,
+      "estado_civil": "casado",
+      "regime_bens": "comunhao_de_adquiridos",
+      "conjuge_de_nif": "214361632",
+      "naturalidade": "Nazare",
+      "nacionalidade": "portuguesa",
+      "morada": "Rua da Liberdade, n.8, fracao P, Alcobaca",
+      "doc_identificacao": "11016448 2 ZX7",
+      "quota_parte": "1/2"
+    },
+    {
+      "nif": "214361632",
+      "nome": "SANDRA RAMOS MORGADO",
+      "e_empresa": false,
+      "estado_civil": "casado",
+      "regime_bens": "comunhao_de_adquiridos",
+      "conjuge_de_nif": "222350245",
+      "naturalidade": "Franca",
+      "nacionalidade": "portuguesa",
+      "morada": "Rua da Liberdade, n.8, fracao P, Alcobaca",
+      "doc_identificacao": "11302791 5 ZY5",
+      "quota_parte": "1/2"
+    }
+  ],
+  "compradores": [
+    {
+      "nif": "308246950",
+      "nome": "CHARLES WALTER LILLEY",
+      "e_empresa": false,
+      "estado_civil": "viuvo",
+      "regime_bens": "nao_aplicavel",
+      "conjuge_de_nif": null,
+      "naturalidade": "Estados Unidos da America",
+      "nacionalidade": "norte-americana",
+      "morada": "Rua da Liberdade, n.22, Bloco D",
+      "doc_identificacao": "90X005W24",
+      "quota_parte": "1/1"
+    }
+  ],
+  "bens": [
+    {
+      "designacao_fracao": "P",
+      "descricao_predial": "1127/Alcobaca",
+      "certidao_predial": "PP-3419-23125-100101-001127",
+      "artigo_matricial": "2363",
+      "freguesia": "Alcobaca e Vestiaria",
+      "concelho": "Alcobaca",
+      "tipo": "U",
+      "valor_patrimonial": 100504.66,
+      "morada": "Rua da Liberdade, n.8, Alcobaca",
+      "codigo_simn": null,
+      "descricao_livre": "Fracao Autonoma P, habitacao T-3, com estacionamento e arrecadacao"
+    }
+  ],
+  "objeto": null,
+  "preco_venda": 280000.0,
+  "hipoteca": 0.0,
+  "hipoteca_a_cancelar": true,
+  "ducs": [
+    {
+      "numero": "160.426.248.487.030",
+      "tipo": "IMT",
+      "montante": null
+    },
+    {
+      "numero": "163.026.041.232.432",
+      "tipo": "IS",
+      "montante": null
+    }
+  ],
+  "verbete_numero": null,
+  "avisos": [
+    "2 vendedores detetados, confirmar (pode ser casal).",
+    "Escritura menciona hipoteca a cancelar, confirmar tratamento no SIMN."
+  ]
+}

@@ -1,0 +1,34 @@
+# Ambiente Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Chave de API e segredos: NUNCA versionar
+.env
+*.key
+
+# Output gerado pela Peça A (funcionária gera localmente em cada PC)
+partilha/campos.json
+peca_a_extracao/saidas/
+peca_a_extracao/saida*.json
+
+# Debug / testes ad-hoc
+_DEBUG_*
+dump_simn_*.txt
+dump_jab_*.txt
+
+# Relatórios gerados
+relatorio_pai*.png
+relatorio_pai_*.md
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# LibreOffice temp
+.~lock.*
+
+# Streamlit
+.streamlit/secrets.toml
