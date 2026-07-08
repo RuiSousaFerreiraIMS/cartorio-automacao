@@ -34,38 +34,46 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
       - "reconhecido" se SIMN autopreencheu (cliente ja na base)
       - "preenchido" se preencheu tudo do JSON
 
-    Ordem de campos (validada nos videos do cartorio):
-       1. Nº Contribuinte
-       2. Nome
-       3. Estatuto Emigrante (checkbox, saltamos)
-       4. Contabilidade Organizada (checkbox, saltamos)
-       5. IVA de caixa (checkbox, saltamos)
-       6. Naturalidade Concelho (dropdown)
-       7. Naturalidade Freguesia
-       8. Naturalidade Pais (dropdown, default Portugal)
-       9. Morada Morada
-      10. Morada Localidade
-      11. Morada Codigo Postal 1 (4 digitos)
-      12. Morada Codigo Postal 2 (3 digitos)
-      13. Morada Localidade do CP
-      14. Morada Concelho (dropdown)
-      15. Morada Freguesia
-      16. Morada Pais (dropdown, default Portugal)
-      17. Estado Civil (dropdown)
-      18. Regime (dropdown, so se casado)
-      19. NIF Conjuge
-      20. Nome Conjuge
+    Ordem de campos (validada no video 150041 do cartorio):
+       0. Nº Contribuinte           (texto)   <- escrevemos
+       1. Nome                      (texto)   <- escrevemos
+       2. Estatuto Emigrante        (checkbox, saltar)
+       3. Contabilidade Organizada  (checkbox, saltar)
+       4. IVA de caixa              (checkbox, saltar)
+       5. Naturalidade Concelho     (DROPDOWN, saltar - funcionaria)
+       6. Naturalidade Freguesia    (DROPDOWN, saltar - funcionaria)
+       7. Naturalidade Pais         (DROPDOWN, saltar - funcionaria)
+       8. Morada Morada             (texto)   <- escrevemos
+       9. Morada Localidade         (texto, saltar)
+      10. Codigo Postal 1 (4 dig)   (texto, saltar)
+      11. Codigo Postal 2 (3 dig)   (texto, saltar)
+      12. Localidade do CP          (texto, saltar)
+      13. Morada Concelho           (DROPDOWN, saltar - funcionaria)
+      14. Morada Freguesia          (DROPDOWN, saltar - funcionaria)
+      15. Morada Pais               (DROPDOWN, saltar - funcionaria)
+      16. Estado Civil              (DROPDOWN por letra) <- selecionamos
+      17. Regime                    (DROPDOWN por letra, so casado)
+      18. NIF Conjuge               (texto)   <- escrevemos
+      19. Nome Conjuge              (texto, SIMN puxa da base)
+
+    REGRA DE OURO (aprendida no video 150041): NUNCA escrever com escrever()
+    num DROPDOWN. Despejar uma string longa num combo Java Swing dispara o
+    autocomplete (escolhe item errado) E abre o popup, que engole os Tabs
+    seguintes e desalinha TODO o form a jusante. Foi o que aconteceu:
+    "Aljubarrota (Prazeres)" foi para Naturalidade Concelho, o popup abriu, e a
+    Morada acabou despejada no dropdown Morada Concelho. Por isso so escrevemos
+    em campos de TEXTO; os dropdowns de Concelho/Freguesia/Pais ficam para a
+    funcionaria. Os unicos dropdowns que tocamos (Estado Civil / Regime) sao de
+    letra unica e ficam no fim, onde nao ha nada a seguir para desalinhar.
     """
     print(f"  A preencher outorgante: {o.get('nome', '?')} (NIF {o.get('nif', '?')})")
-    nacionalidade = (o.get("nacionalidade") or "").lower()
-    e_estrangeiro = bool(nacionalidade) and "portug" not in nacionalidade
 
-    # 1. NIF
+    # 0. NIF (texto)
     escrever(o.get("nif", ""))
     tab()
     time.sleep(0.6)  # SIMN pode consultar base
 
-    # 2. Nome - verificar autopreenchimento
+    # 1. Nome (texto) - verificar autopreenchimento
     nome_atual = ler_campo_atual()
     if nome_atual:
         print(f"  -> Cliente reconhecido na base: {nome_atual!r}")
@@ -75,38 +83,26 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     escrever(o.get("nome", ""))
     tab()
 
-    # 3-5. Checkboxes: Estatuto Emigrante / Contab / IVA (saltar)
+    # 2-4. Checkboxes (Estatuto Emigrante / Contab / IVA) - saltar
     tab(3)
 
-    # 6. Naturalidade Concelho
-    if e_estrangeiro:
-        tab()  # saltar - naturalidade vai no campo Pais
-    else:
-        naturalidade = o.get("naturalidade") or ""
-        if naturalidade:
-            escrever(naturalidade)
-        tab()
+    # 5-7. Naturalidade Concelho / Freguesia / Pais - TODOS dropdowns.
+    # NAO escrever: abriria o popup e desalinharia tudo (bug do video 150041).
+    # A funcionaria preenche a naturalidade a mao. 3 Tabs limpos.
+    print("  -> Naturalidade deixada em branco (dropdowns; funcionaria completa).")
+    tab(3)
 
-    # 7. Naturalidade Freguesia (deixar vazio, funcionaria completa)
-    tab()
-
-    # 8. Naturalidade Pais
-    if e_estrangeiro:
-        pais = o.get("naturalidade") or o.get("nacionalidade") or ""
-        escrever(pais)
-    tab()
-
-    # 9. Morada Morada
+    # 8. Morada Morada (texto livre - seguro escrever)
     escrever(o.get("morada", ""))
     tab()
 
-    # 10-13. Localidade / CP1 / CP2 / LocCP (saltar - vem no campo Morada)
+    # 9-12. Localidade / CP1 / CP2 / LocCP (texto, saltar - endereco vai todo na Morada)
     tab(4)
 
-    # 14-16. Morada Concelho / Freguesia / Pais (deixar defaults)
+    # 13-15. Morada Concelho / Freguesia / Pais (dropdowns, saltar - funcionaria)
     tab(3)
 
-    # 17. Estado Civil
+    # 16. Estado Civil (dropdown de letra unica - so 1 opcao por letra, seguro)
     ec_letra = {
         "solteiro": "s", "casado": "c", "divorciado": "d",
         "viuvo": "v", "uniao_de_facto": "u",
@@ -115,7 +111,7 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
         dropdown_por_letra(ec_letra)
     tab()
 
-    # 18. Regime de Bens (so se casado)
+    # 17. Regime de Bens (so se casado)
     if o.get("estado_civil") == "casado":
         rb_letra = {
             "comunhao_de_adquiridos": "c",
@@ -126,12 +122,12 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
             dropdown_por_letra(rb_letra)
     tab()
 
-    # 19. NIF Conjuge
+    # 18. NIF Conjuge (texto)
     if o.get("conjuge_de_nif"):
         escrever(o["conjuge_de_nif"])
     tab()
 
-    # 20. Nome Conj. - deixar em branco, SIMN puxa da base pelo NIF
+    # 19. Nome Conj. - deixar em branco, SIMN puxa da base pelo NIF
     return "preenchido"
 
 
