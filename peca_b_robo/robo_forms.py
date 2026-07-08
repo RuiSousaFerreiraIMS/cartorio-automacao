@@ -68,10 +68,10 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 2. Nome - verificar autopreenchimento
     nome_atual = ler_campo_atual()
     if nome_atual:
-        print(f"  → Cliente reconhecido na base: {nome_atual!r}")
+        print(f"  -> Cliente reconhecido na base: {nome_atual!r}")
         return "reconhecido"
 
-    print("  → Cliente novo, a preencher form completo.")
+    print("  -> Cliente novo, a preencher form completo.")
     escrever(o.get("nome", ""))
     tab()
 

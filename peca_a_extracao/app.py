@@ -1162,11 +1162,14 @@ if st.session_state.get("robo_lancado"):
                     # CREATE_NO_WINDOW = 0x08000000 (sem consola visível)
                     with st.spinner(f"Robô a preencher {rotulo}... Alt+Tab para o SIMN nos próximos 8s."):
                         try:
+                            env = os.environ.copy()
+                            env["PYTHONIOENCODING"] = "utf-8"
                             resultado = subprocess.run(
                                 [_sys.executable, caminho_robo, "--idx", str(idx),
                                  os.path.abspath(CAMINHO_JSON)],
                                 creationflags=0x08000000,
                                 capture_output=True, text=True, timeout=120,
+                                env=env, encoding="utf-8", errors="replace",
                             )
                             st.session_state.ultimo_robo_status = {
                                 "rotulo": rotulo,

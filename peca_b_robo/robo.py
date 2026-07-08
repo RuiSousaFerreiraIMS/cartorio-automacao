@@ -26,6 +26,14 @@ import json
 import os
 import sys
 
+# Forcar UTF-8 no stdout/stderr para nao rebentar quando corrido sem consola
+# (subprocess com CREATE_NO_WINDOW usa cp1252 por defeito, que nao suporta unicode).
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 try:
     import pyautogui  # noqa: F401 - falha cedo se nao estiver instalado
 except ImportError:
