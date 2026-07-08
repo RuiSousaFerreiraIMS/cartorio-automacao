@@ -147,3 +147,33 @@ def contagem_decrescente(segundos: int = 5, mensagem: str = "") -> None:
     for i in range(segundos, 0, -1):
         print(f"  {i}...", flush=True)
         time.sleep(1)
+
+
+def janela_em_foco_titulo() -> str:
+    """Devolve o titulo da janela actualmente em foco. '' se falhar."""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        hwnd = user32.GetForegroundWindow()
+        buf = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(hwnd, buf, 512)
+        return buf.value or ""
+    except Exception:
+        return ""
+
+
+def verificar_foco_simn() -> bool:
+    """Devolve True se a janela em foco parece ser do SIMN. Imprime aviso claro se nao."""
+    titulo = janela_em_foco_titulo()
+    if "simn" in titulo.lower() or "vendedor" in titulo.lower() or "comprador" in titulo.lower() \
+       or "doador" in titulo.lower() or "donatario" in titulo.lower() or "bem" in titulo.lower() \
+       or "outorgante" in titulo.lower():
+        return True
+    print()
+    print("=" * 60)
+    print(f"  ⚠️  SIMN NAO ESTA EM FOCO!")
+    print(f"  Janela actual: {titulo!r}")
+    print(f"  Robo aborta para nao escrever no sitio errado.")
+    print(f"  Solucao: focar manualmente o form do SIMN e reiniciar o menu.")
+    print("=" * 60)
+    return False

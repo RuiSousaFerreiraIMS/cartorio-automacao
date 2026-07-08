@@ -33,7 +33,7 @@ except ImportError:
     sys.exit(1)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from robo_actions import contagem_decrescente  # noqa: E402
+from robo_actions import contagem_decrescente, verificar_foco_simn  # noqa: E402
 from robo_forms import preencher_outorgante  # noqa: E402
 
 
@@ -126,7 +126,12 @@ def main() -> None:
         print("  2. Cursor no campo Nº Contribuinte")
         print("  3. Alt+Tab para o SIMN quando comecar a contagem")
 
-        contagem_decrescente(5, "\nA arrancar em 5 segundos. Alt+Tab AGORA.")
+        contagem_decrescente(8, "\nA arrancar em 8 segundos. Alt+Tab AGORA para o SIMN.")
+
+        # Verificar foco antes de escrever qualquer tecla
+        if not verificar_foco_simn():
+            input("Enter para voltar ao menu... ")
+            continue
 
         try:
             preencher_outorgante(outorgante)
