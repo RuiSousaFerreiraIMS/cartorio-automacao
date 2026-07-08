@@ -1156,9 +1156,11 @@ if st.session_state.get("robo_lancado"):
                 if st.button(f"▶ Preencher", key=f"preench_btn_{idx}", use_container_width=True):
                     import subprocess
                     import sys as _sys
+                    print(f"[APP] Botao Preencher clicado: idx={idx} rotulo={rotulo!r}", flush=True)
                     caminho_robo = os.path.abspath(
                         os.path.join(os.path.dirname(__file__), "..", "peca_b_robo", "robo.py")
                     )
+                    print(f"[APP] Vou lancar: {_sys.executable} {caminho_robo} --idx {idx}", flush=True)
                     # CREATE_NO_WINDOW = 0x08000000 (sem consola visível)
                     with st.spinner(f"Robô a preencher {rotulo}... Alt+Tab para o SIMN nos próximos 8s."):
                         try:
@@ -1171,6 +1173,9 @@ if st.session_state.get("robo_lancado"):
                                 capture_output=True, text=True, timeout=120,
                                 env=env, encoding="utf-8", errors="replace",
                             )
+                            print(f"[APP] Robo terminou: code={resultado.returncode}", flush=True)
+                            print(f"[APP] stdout: {(resultado.stdout or '')[:500]}", flush=True)
+                            print(f"[APP] stderr: {(resultado.stderr or '')[:500]}", flush=True)
                             st.session_state.ultimo_robo_status = {
                                 "rotulo": rotulo,
                                 "code": resultado.returncode,
