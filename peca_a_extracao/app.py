@@ -865,20 +865,21 @@ def tab_ducs(lista):
                       border-radius:5px; margin-bottom:9px;">{tipo}</div>
         </div>
         """, unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1, 3, 2])
+        c1, c2, c3, c4 = st.columns([1, 3, 2, 2])
         d.tipo = _vazio_para_none(c1.text_input("Tipo", d.tipo or "", key=f"duc_{i}_tipo"))
         d.numero = _vazio_para_none(c2.text_input("Número", d.numero or "", key=f"duc_{i}_num"))
         d.montante = c3.number_input(
-            "Montante (Finanças, EUR)", value=float(d.montante or 0.0), step=10.0,
+            "Montante (EUR)", value=float(d.montante or 0.0), step=10.0,
             key=f"duc_{i}_mont",
         ) or None
+        d.data = _vazio_para_none(c4.text_input("Data", d.data or "", key=f"duc_{i}_data"))
 
     st.markdown(f"""
     <div style="background:{INFO_BG}; border:1px solid {INFO_BORDER}; border-radius:6px;
                 padding:10px 12px; font-size:11px; color:{INFO_TEXT}; line-height:1.5;
                 margin-top:8px;">
-      O montante vem do Portal das Finanças, não da escritura. Preencher antes de exportar,
-      ou deixar vazio se ainda não disponível.
+      O notário passou a incluir o valor do DUC na escritura. Se algum campo faltar,
+      a funcionária completa antes de exportar.
     </div>
     """, unsafe_allow_html=True)
 

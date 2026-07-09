@@ -43,6 +43,7 @@ BTN_ADICIONAR_COMPRADOR = _img("btn_adicionar_comprador.png")
 BTN_ADICIONAR_DOADOR = _img("btn_adicionar_doador.png")
 BTN_ADICIONAR_DONATARIO = _img("btn_adicionar_donatario.png")
 BTN_ADICIONAR_BEM = _img("btn_adicionar_bem.png")
+BTN_NOVO_BEM = _img("btn_novo_bem.png")
 BTN_NOVO_OUTORGANTE_SINGULAR = _img("btn_novo_singular.png")
 BTN_NOVO_DUC = _img("btn_novo_duc.png")
 BTN_NOVA_RELACAO = _img("btn_nova_relacao.png")
@@ -72,6 +73,18 @@ def _abrir_form_outorgante(botao_adicionar_img: str, tipo: str) -> None:
     _clicar_ou_avisar(BTN_NOVO_OUTORGANTE_SINGULAR, "Novo Outorgante Singular")
     if not esperar_janela_titulo(tipo, timeout=5):
         print(f"  ⚠️  Form de {tipo} nao apareceu.")
+
+
+def _abrir_form_bem() -> None:
+    """Fluxo comum a todos os atos com bens: 'Adicionar bem' -> 'Novo Bem' -> form.
+
+    Espelha _abrir_form_outorgante. Se a sequencia de dialogos do Bem for
+    diferente (ex: 'Adicionar bem' abre o form directamente, sem 'Novo Bem'),
+    o _clicar_ou_avisar cai no modo manual e a funcionaria clica; confirmar no
+    cartorio e ajustar aqui.
+    """
+    _clicar_ou_avisar(BTN_ADICIONAR_BEM, "Adicionar bem")
+    _clicar_ou_avisar(BTN_NOVO_BEM, "Novo Bem")
 
 
 def _confirmar_ok() -> None:
@@ -113,8 +126,7 @@ def fluxo_cv(campos: dict[str, Any]) -> None:
     # === BENS ===
     for i, b in enumerate(campos.get("bens", []), 1):
         print(f"\n[Bem {i}/{len(campos['bens'])}]")
-        _clicar_ou_avisar(BTN_ADICIONAR_BEM, "Adicionar bem")
-        # TODO: clicar em "Novo Bem" no dialogo
+        _abrir_form_bem()
         preencher_bem(b)
         _confirmar_ok()
         time.sleep(0.5)
@@ -178,7 +190,7 @@ def fluxo_doacao(campos: dict[str, Any]) -> None:
 
     for i, b in enumerate(campos.get("bens", []), 1):
         print(f"\n[Bem {i}]")
-        _clicar_ou_avisar(BTN_ADICIONAR_BEM, "Adicionar bem")
+        _abrir_form_bem()
         preencher_bem(b)
         _confirmar_ok()
 

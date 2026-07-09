@@ -265,12 +265,18 @@ class DUC(_Base):
     """
     DUC = Documento Unico de Cobranca (pagamento de impostos).
     Na escritura aparecem como 'Documento numero ... obtido via Internet'
-    (IMT e verba 1.1 da TGIS / Imposto do Selo). O MONTANTE vem das Financas,
-    nao da escritura. A confirmar no video se entra no ambito do robo.
+    (IMT e verba 1.1 da TGIS / Imposto do Selo).
+
+    Regra ATUALIZADA 2026-07-09: o notario passa a incluir o valor do DUC na
+    escritura, por isso o montante ja NAO e sempre null; extrai-o se aparecer.
+    Form SIMN: Numero, Facto IMT (tipo), Montante, Data.
     """
     numero: Optional[str] = None
     tipo: Optional[str] = Field(None, description="'IMT' ou 'IS' (imposto do selo).")
-    montante: Optional[float] = None
+    montante: Optional[float] = Field(
+        None, description="Valor do DUC em euros. Se a escritura o indicar, extrai-o."
+    )
+    data: Optional[str] = Field(None, description="Data do DUC, ex '2026-06-22'.")
 
 
 class CompraVenda(_Base):

@@ -51,6 +51,20 @@ def tab(vezes: int = 1) -> None:
         pyautogui.press("tab")
 
 
+def tab_ctrl(vezes: int = 1) -> None:
+    """Ctrl+Tab N vezes: SAI de campos que engolem o Tab normal.
+
+    Necessario para os TEXTAREA multi-linha do SIMN (ex: 'Moradas' no form do
+    Bem): um Tab normal insere um caractere de tabulacao dentro do textarea e NAO
+    muda de campo. Em Java Swing, Ctrl+Tab e a travessia de foco para a frente
+    (Ctrl+Shift+Tab para tras). Se no SIMN real isto nao sair do textarea, o plano
+    B e clicar o campo seguinte por imagem.
+    """
+    for _ in range(vezes):
+        pyautogui.hotkey("ctrl", "tab")
+        time.sleep(0.05)
+
+
 def dropdown_por_letra(primeira_letra: str) -> None:
     """Dropdowns Java Swing autocompletam com a primeira letra do valor."""
     if not primeira_letra:

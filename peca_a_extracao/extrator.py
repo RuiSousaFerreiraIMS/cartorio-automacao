@@ -131,7 +131,7 @@ Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
   "preco_venda": 280000.0,
   "hipoteca": 0.0,
   "hipoteca_a_cancelar": false,
-  "ducs": [{"numero": "...", "tipo": "IMT", "montante": null}],
+  "ducs": [{"numero": "...", "tipo": "IMT", "montante": null, "data": null}],
   "verbete_numero": null,
   "avisos": []
 }
@@ -177,8 +177,10 @@ Regras importantes:
 - preco_venda: o valor por extenso na escritura (ex "DUZENTOS E OITENTA MIL EUROS" = 280000.0).
 - valor_patrimonial: o VPT da fracao se mencionado.
 - hipoteca_a_cancelar: true se o texto fala em cancelamento de hipoteca existente.
-- ducs: extrai os "Documento numero ..." do Arquivo (IMT e TGIS/imposto do selo). O
-  montante normalmente NAO esta na escritura: deixa null.
+- ducs: extrai os "Documento numero ..." do Arquivo (IMT e TGIS/imposto do selo). Para cada
+  DUC: numero (o nº do documento), tipo ("IMT" ou "IS"), montante (o valor em euros SE a
+  escritura o indicar, senao null) e data (data do documento, se indicada). O notario passou a
+  incluir o valor do DUC, por isso EXTRAI o montante quando aparecer; se nao aparecer, null.
 - codigo_simn: deixa SEMPRE null (e interno do SIMN, nao vem da escritura).
 - Se nao encontrares um campo, poe null. NUNCA inventes.
 """
