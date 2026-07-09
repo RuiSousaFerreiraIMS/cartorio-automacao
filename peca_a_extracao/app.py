@@ -1137,6 +1137,7 @@ if st.session_state.get("robo_lancado"):
             ("Vendedor", "vendedores"), ("Comprador", "compradores"),
             ("Doador", "doadores"), ("Donatário", "donatarios"),
             ("Herdeiro", "herdeiros"), ("Partilhante", "partilhantes"),
+            ("Declarante", "declarantes"),
         ]:
             lista = getattr(cv_obj, lista_attr, None) or []
             for i, o in enumerate(lista, 1):
