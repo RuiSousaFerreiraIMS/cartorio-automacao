@@ -117,8 +117,11 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 10-13. Localidade / CP1 / CP2 / LocCP (texto, saltar - endereco vai todo na Morada)
     tab(4)
 
-    # 14-16. Morada Concelho / Freguesia / Pais (dropdowns, saltar - funcionaria)
-    tab(3)
+    # 14-16. Morada Concelho / Freguesia / Pais (dropdowns, saltar).
+    # tab(4) e nao 3: no teste o robo comecava as setas do Estado Civil ainda no
+    # dropdown Morada Pais (stop 16) e navegava-o por engano (Republica
+    # Dominicana). Falta um avanco ate ao Estado Civil (stop 17).
+    tab(4)
 
     # 17. Estado Civil (dropdown de SELECAO / cinzento). Metodo do notario: Down
     # navega ate a opcao -> Tab confirma -> Tab avanca. Ordem no SIMN:
