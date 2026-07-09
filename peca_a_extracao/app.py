@@ -375,7 +375,8 @@ def render_sidebar(obj, nome_ficheiro):
 
         # Botão simular nova extração
         if st.button("↺ Simular nova extração", use_container_width=True, key="reset_btn"):
-            for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado"):
+            for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado",
+                      "robo_feitos", "robo_last_status"):
                 st.session_state.pop(k, None)
             st.rerun()
 
@@ -1101,7 +1102,8 @@ st.markdown(f"""
 # de codigo a mostrar a funcionaria; o campos.json ja se grava sozinho acima.)
 st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
 if st.button("← Carregar outra escritura", key="reset_main"):
-    for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado", "robo_lancado"):
+    for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado", "robo_lancado",
+              "robo_feitos", "robo_last_status"):
         st.session_state.pop(k, None)
     st.rerun()
 
@@ -1155,11 +1157,8 @@ if st.session_state.get("robo_lancado"):
     itens_disponiveis = _lista_para_botoes(obj)
     if itens_disponiveis:
         _sp = os.path.join(os.path.dirname(CAMINHO_JSON), "robo_status.json")
-
-        # Placeholder unico de estado, no topo. Actualiza-se AO VIVO enquanto o
-        # robo preenche (poll do robo_status.json), sem botoes Atualizar/Limpar:
-        # '⏳ a preencher...' passa sozinho a '✓ preenchido'.
-        status_ph = st.empty()
+        # Itens ja preenchidos nesta escritura (checklist persistente = progresso).
+        _feitos = st.session_state.setdefault("robo_feitos", set())
 
         def _mostrar_estado(ph, rotulo, estado, msg):
             if estado == "ok":
@@ -1171,28 +1170,32 @@ if st.session_state.get("robo_lancado"):
             elif estado:
                 ph.error(f"⚠️ {rotulo}: {msg}")
 
-        # Mostrar o ultimo estado conhecido (se houver ficheiro de um run anterior)
-        _s0 = None
-        if os.path.exists(_sp):
-            try:
-                with open(_sp, encoding="utf-8") as _f:
-                    _s0 = json.load(_f)
-            except Exception:
-                _s0 = None
-        if _s0:
-            _mostrar_estado(status_ph, _s0.get("rotulo", ""), _s0.get("estado"), _s0.get("msg", ""))
+        # Estado do ultimo preenchimento (persiste apos o rerun que marca o ✅).
+        status_ph = st.empty()
+        _last = st.session_state.get("robo_last_status")
+        if _last:
+            _mostrar_estado(status_ph, _last.get("rotulo", ""), _last.get("estado"), _last.get("msg", ""))
+
+        # Progresso: contador + barra. Da o "sentido de progresso" pedido.
+        _tot = len(itens_disponiveis)
+        _n = len([i for i in _feitos if i < _tot])
+        st.caption(f"Preenchidos: {_n} de {_tot}")
+        st.progress(_n / _tot if _tot else 0.0)
 
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-        # Render de TODOS os itens primeiro; so depois lancamos/pollamos (senao a
-        # lista desaparecia durante o preenchimento).
+        # Render de TODOS os itens primeiro (com ✅ nos ja feitos); so depois
+        # lancamos/pollamos (senao a lista desaparecia durante o preenchimento).
         _idx_clicado = None
         _rotulo_clicado = None
         for idx, (rotulo, subtitulo) in enumerate(itens_disponiveis):
+            feito = idx in _feitos
             c1, c2 = st.columns([3, 1])
             with c1:
-                st.markdown(f"**{rotulo}**  ·  {subtitulo}")
+                marca = "✅ " if feito else ""
+                st.markdown(f"{marca}**{rotulo}**  ·  {subtitulo}")
             with c2:
-                if st.button("▶ Preencher", key=f"preench_btn_{idx}", use_container_width=True):
+                label = "↻ Repetir" if feito else "▶ Preencher"
+                if st.button(label, key=f"preench_btn_{idx}", use_container_width=True):
                     _idx_clicado = idx
                     _rotulo_clicado = rotulo
 
@@ -1211,6 +1214,7 @@ if st.session_state.get("robo_lancado"):
                     os.remove(_sp)
             except Exception:
                 pass
+            _falhou_lancar = False
             try:
                 # CREATE_NO_WINDOW = 0x08000000 (sem consola visivel). O robo espera
                 # o SIMN ganhar foco e arranca sozinho.
@@ -1221,16 +1225,21 @@ if st.session_state.get("robo_lancado"):
                     env=env,
                 )
             except Exception as e:
-                status_ph.error(f"❌ Erro a lançar robô: {e}")
-            else:
-                # Poll AO VIVO ate o robo terminar (ou timeout). Bloqueia este run,
-                # mas e' esse o efeito desejado: a funcionaria esta no SIMN e ve o
-                # estado a mudar sozinho ('⏳ a preencher...' -> '✓ preenchido').
+                _falhou_lancar = True
+                st.session_state.robo_last_status = {
+                    "rotulo": _rotulo_clicado, "estado": "erro",
+                    "msg": f"nao consegui lançar o robô: {e}",
+                }
+            if not _falhou_lancar:
+                # Poll AO VIVO ate o robo terminar (ou timeout). Bloqueia este run:
+                # e' o efeito desejado (a funcionaria esta no SIMN). Se o Streamlit
+                # nao actualizar ao vivo, o ✅ na checklist aparece no rerun a seguir.
                 status_ph.info(
                     f"⏳ {_rotulo_clicado}: a arrancar... vai ao SIMN e clica no 1º campo do form."
                 )
                 _fim = _time.time() + 50
                 _ultimo_estado = None
+                _ultimo_msg = ""
                 while _time.time() < _fim:
                     _time.sleep(1.0)
                     _s = None
@@ -1242,11 +1251,17 @@ if st.session_state.get("robo_lancado"):
                             _s = None
                     if _s:
                         _ultimo_estado = _s.get("estado")
-                        _mostrar_estado(status_ph, _rotulo_clicado, _ultimo_estado, _s.get("msg", ""))
+                        _ultimo_msg = _s.get("msg", "")
+                        _mostrar_estado(status_ph, _rotulo_clicado, _ultimo_estado, _ultimo_msg)
                         if _ultimo_estado in ("ok", "erro", "empresa"):
                             break
-                if _ultimo_estado not in ("ok", "erro", "empresa"):
-                    status_ph.warning(
-                        f"{_rotulo_clicado}: sem resposta a tempo. Se já preencheu no SIMN, ignora; "
-                        "senão clica ▶ Preencher outra vez."
+                if _ultimo_estado == "ok":
+                    _feitos.add(_idx_clicado)  # marca ✅ na checklist
+                elif _ultimo_estado is None:
+                    _ultimo_estado, _ultimo_msg = "erro", (
+                        "sem resposta a tempo. Se já preencheu no SIMN, ignora; senão repete."
                     )
+                st.session_state.robo_last_status = {
+                    "rotulo": _rotulo_clicado, "estado": _ultimo_estado, "msg": _ultimo_msg,
+                }
+            st.rerun()  # refresca a checklist (mostra o novo ✅) e o estado final
