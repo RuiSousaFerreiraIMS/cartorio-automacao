@@ -126,14 +126,17 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 17. Estado Civil (dropdown de SELECAO / cinzento). Metodo do notario: Down
     # navega ate a opcao -> Tab confirma -> Tab avanca. Ordem no SIMN:
     #   0 Casado(a)  1 Divorciado(a)  2 Separado(a)  3 Solteiro Maior
-    #   4 Solteiro Menor  5 Viuvo(a).   (n_baixo = indice + 1)
+    #   4 Solteiro Menor  5 Viuvo(a).
+    # n_baixo = indice + 2: medido no teste (viuva=idx5 com 6 setas caiu no idx4;
+    # casado=idx0 com 1 seta ficou em branco). A 1a seta so ABRE o dropdown, a 2a
+    # e que cai no primeiro item. Logo indice = setas - 2, ou setas = indice + 2.
     ec_idx = {
         "casado": 0, "divorciado": 1, "separado": 2,
         "solteiro": 3,  # -> Solteiro Maior
         "viuvo": 5,
     }.get(str(o.get("estado_civil", "")).lower())
     if ec_idx is not None:
-        dropdown_por_setas(ec_idx + 1)
+        dropdown_por_setas(ec_idx + 2)
         time.sleep(0.3)  # deixar ativar Regime/Conjuge quando casado
         tab()  # confirma
     tab()      # avanca -> Regime (se casado)
@@ -148,7 +151,7 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
             "separacao_de_bens": 2,
         }.get(str(o.get("regime_bens", "")).lower())
         if rb_idx is not None:
-            dropdown_por_setas(rb_idx + 1)
+            dropdown_por_setas(rb_idx + 2)  # +2 igual ao Estado Civil (1a seta so abre)
             tab()  # confirma
         tab()      # avanca -> stop 19
         tab(3)     # 19-21 stops fantasma -> stop 22 (NIF Conjuge)
