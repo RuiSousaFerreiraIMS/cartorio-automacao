@@ -14,15 +14,30 @@ from __future__ import annotations
 import time
 from typing import Any
 
-import pyautogui
-
 from robo_actions import (
     dropdown_por_setas,
     escrever,
     escrever_dropdown,
     ler_campo_atual,
+    radio_selecionar,
     tab,
+    tab_ctrl,
 )
+
+
+def _valor_simn(euros: Any) -> str:
+    """Formata um valor em euros para os campos de MOEDA do SIMN.
+
+    Descoberta na calibracao (2026-07-09): estes campos enchem da DIREITA como
+    centimos. Escrever '18' da 0,18 EUR; '28000000' da 280.000,00 EUR. Por isso
+    convertemos euros -> string de centimos inteiros.
+    """
+    if euros is None:
+        return ""
+    try:
+        return str(int(round(float(euros) * 100)))
+    except (TypeError, ValueError):
+        return ""
 
 
 # -----------------------------------------------------------------------------
@@ -183,46 +198,97 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
 def preencher_bem(b: dict[str, Any]) -> str:
     """Preenche o form do bem imovel.
 
-    ORDEM DE CAMPOS AINDA POR MAPEAR — vai ser preenchida quando o Rui trouxer
-    screenshots + notas do bloco 3 da CHECKLIST_CARTORIO.md.
+    Ordem MAPEADA com calibrar_form.py no cartorio (2026-07-09, 2 corridas: uma
+    do topo ate ficar presa no textarea Moradas; outra a comecar no Artigo).
 
-    Estrutura esperada (do screenshot 110826):
-       - Localizaçao Fiscal: Concelho (dropdown), Freguesia, Moradas
-       - Identificaçao Matricial: Urbano/Rustico (radio), Artigo, Secçao,
-         Arvore/Colonia, Fracçao autonoma, Data do registo de inscriçao
-       - Descricao: Afectaçao, Tipo Regime, Tipo Direito
-       - Conservatoria: Ident., Nº Registo, Nº hipotecas ant., Datas
-       - Situaçao Fiscal: Situaçao (default "200 - Sujeito a IMT")
-       - Importancias: Preço da venda / Valor bens Imoveis
+    TOPO (Localizacao Fiscal):
+       Concelho   (DROPDOWN de escrita)  <- escrevemos
+       Freguesia  (DROPDOWN de escrita)  <- escrevemos
+       Moradas    (TEXTAREA)             <- escrevemos, saimos com Ctrl+Tab
+       Urbano/Rustico (RADIO)            <- seleccionamos
+    A partir do Artigo, indices da corrida B (cursor no Artigo = 00):
+       00 Artigo                 (texto)  <- escrevemos
+       01 Fraccao autonoma       (texto)  <- escrevemos (letra da fraccao)
+       02 Seccao                 (texto)  saltar
+       03 Arvore/Colonia         (texto)  saltar
+       04 Data registo inscricao (data)   saltar
+       05 Afectacao              (texto)  saltar - funcionaria
+       06 Tipo Regime            (texto)  saltar - funcionaria
+       07 Tipo Direito           (DROPDOWN) saltar - funcionaria
+       08 Ident. Conservatoria   (DROPDOWN) saltar - funcionaria
+       09-10 *** STOPS FANTASMA ***       saltar
+       11 Data registo provisorio (data)  saltar
+       12 Nº Registo             (texto)  <- escrevemos (descricao predial; regra
+                                           do notario: omisso => deixar vazio)
+       13 Nº hipotecas anteriores (texto) saltar
+       14 Núm. apresentacao p.h. (texto)  saltar
+       15 Data apresentacao p.h. (data)   saltar
+       16 Situacao Fiscal        (DROPDOWN, default "200 - Sujeito a IMT") saltar
+       17 *** STOP FANTASMA ***           saltar
+       18 Preco da venda         (MOEDA)  <- escrevemos (do preco da CV, se vier
+                                           em b['preco_venda']; mask de centimos)
+
+    Metodo dos campos, igual ao outorgante:
+      - DROPDOWN de escrita (Concelho/Freguesia): escrever_dropdown -> Tab confirma
+        (absorvido) -> Tab avanca.
+      - TEXTAREA (Moradas): escrever -> Ctrl+Tab para SAIR (o Tab normal fica preso).
+      - RADIO (Urbano/Rustico): radio_selecionar(0=Urbano, 1=Rustico).
+      - Campos de texto/moeda: escrever + Tab.
+      - Dropdowns cinzentos (Tipo Direito, Ident. Conservatoria, Situacao): NAO
+        tocar, so passar com Tab (funcionaria trata). Como nao os abrimos, cada um
+        conta 1 so stop, por isso as contagens do mapa mantem-se.
+
+    A CONFIRMAR no teste: (1) apos o Ctrl+Tab do Moradas o foco cai no radio e 1
+    Tab chega ao Artigo (pode haver stop a mais); (2) a seta/Space do radio.
     """
     print(f"  A preencher bem: {b.get('descricao_predial') or b.get('freguesia') or '?'}")
-    print("  ⚠️  PREENCHIMENTO DO BEM ainda por mapear. Vai preencher parcialmente.")
 
-    # Placeholder: preencher so o que sabemos com certeza do video
-    # (Concelho -> Freguesia -> Moradas -> Rustico/Urbano -> Artigo)
+    # --- TOPO ---
+    # Concelho (dropdown de escrita)
+    if b.get("concelho"):
+        escrever_dropdown(b["concelho"])
+        tab()  # confirma
+    tab()      # avanca -> Freguesia
+    # Freguesia (dropdown de escrita)
+    if b.get("freguesia"):
+        escrever_dropdown(b["freguesia"])
+        tab()  # confirma
+    tab()      # avanca -> Moradas
 
-    # 1. Concelho (dropdown)
-    concelho = b.get("concelho") or ""
-    if concelho:
-        escrever(concelho)
-    tab()
-    # 2. Freguesia
-    freguesia = b.get("freguesia") or ""
-    if freguesia:
-        escrever(freguesia)
-    tab()
-    # 3. Moradas (textarea)
+    # Moradas (textarea): escrever e SAIR com Ctrl+Tab (o Tab normal fica preso la).
     escrever(b.get("morada", ""))
-    tab()
+    tab_ctrl()  # -> radio Urbano/Rustico
 
-    # 4. Urbano/Rustico (radio) - ainda sem forma clara de escolher
-    # Nota: radios em Java Swing costumam responder a Space quando focados
-    if b.get("tipo") == "R":
-        pyautogui.press("space")  # assume Rustico e' o segundo
-    # else: Urbano por defeito (assumido)
+    # Urbano/Rustico (radio). 0 = Urbano (default assumido), 1 = Rustico.
+    radio_selecionar(1 if b.get("tipo") == "R" else 0)
+    tab()       # -> Artigo (00)
 
-    # ... continua quando tivermos os screenshots
-    return "parcial"
+    # 00 Artigo (texto). Regra do notario: so o numero, sem sufixo (ja normalizado).
+    escrever(b.get("artigo_matricial", ""))
+    tab()       # -> 01 Fraccao autonoma
+    # 01 Fraccao autonoma (letra da fraccao, ex "P")
+    escrever(b.get("designacao_fracao", ""))
+    tab()       # -> 02 Seccao
+
+    # 02..11: Seccao, Arvore, Data inscricao, Afectacao, Tipo Regime, Tipo Direito,
+    # Ident. Conservatoria, 2 fantasmas, Data provisorio -> saltar ate ao Nº Registo.
+    tab(10)     # 02 -> 12 (Nº Registo)
+
+    # 12 Nº Registo (descricao predial). Regra do notario: omisso => campo vazio.
+    desc = (b.get("descricao_predial") or "").strip()
+    if desc and "omisso" not in desc.lower():
+        escrever(desc)
+
+    # 12 -> 18: Nº hipotecas, Núm. apresentacao, Data apresentacao, Situacao,
+    # fantasma -> saltar ate ao Preco da venda.
+    tab(6)      # 12 -> 18 (Preco da venda)
+
+    # 18 Preco da venda (moeda, mask de centimos). Vem do preco da CV (injectado
+    # pelo fluxo em b['preco_venda']), nao do proprio bem.
+    if b.get("preco_venda") is not None:
+        escrever(_valor_simn(b["preco_venda"]))
+
+    return "preenchido"
 
 
 # -----------------------------------------------------------------------------
@@ -231,20 +297,31 @@ def preencher_bem(b: dict[str, Any]) -> str:
 def preencher_duc(duc: dict[str, Any]) -> str:
     """Preenche o form pequeno de DUC.
 
-    AINDA POR MAPEAR — bloco 4 da checklist. Estrutura provavel: Numero, Tipo,
-    Montante (opcional).
-    """
-    print(f"  A preencher DUC: {duc.get('tipo', '?')} {duc.get('numero', '?')}")
-    print("  ⚠️  FORM DE DUC ainda por mapear.")
+    Ordem MAPEADA (2026-07-09): 4 campos de texto consecutivos, 1 Tab entre cada,
+    sem dropdowns nem stops fantasma (todos aceitaram os marcadores numericos):
+       0. Numero      (texto)  <- escrevemos (o que temos hoje, e o essencial)
+       1. Facto IMT   (texto)  saltar - funcionaria
+       2. Montante    (MOEDA)  <- so se vier no JSON (mask de centimos). O notario
+                                 vai passar a incluir o valor; ate la vem null.
+       3. Data        (data)   saltar - nao obrigatorio (Rui confirmou)
 
+    O cursor comeca no Numero. Paramos assim que der: nao ha vantagem em Tab-ar
+    ate ao fim.
+    """
+    print(f"  A preencher DUC: {duc.get('tipo', '?')} nº {duc.get('numero', '?')}")
+
+    # 0. Numero (texto)
     escrever(duc.get("numero", ""))
-    tab()
-    if duc.get("tipo"):
-        escrever(duc["tipo"])
-    tab()
-    if duc.get("montante"):
-        escrever(str(duc["montante"]))
-    return "parcial"
+    tab()       # -> Facto IMT
+
+    # 1. Facto IMT: saltar (funcionaria)
+    tab()       # -> Montante
+
+    # 2. Montante (moeda). So preencher se a escritura ja trouxe o valor.
+    if duc.get("montante") is not None:
+        escrever(_valor_simn(duc["montante"]))
+    # 3. Data: nao obrigatorio, deixar para a funcionaria.
+    return "preenchido"
 
 
 # -----------------------------------------------------------------------------

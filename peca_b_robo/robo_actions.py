@@ -94,6 +94,22 @@ def escrever_dropdown(valor: str | None) -> None:
         time.sleep(0.25)
 
 
+def radio_selecionar(indice: int) -> None:
+    """Selecciona a opcao `indice` (0 = primeira) de um grupo de radios Java Swing.
+
+    Nos forms do SIMN os radios (ex: Urbano/Rustico no Bem) nao vem seleccionados
+    por defeito, por isso seleccionamos sempre. Metodo: com o grupo focado, as
+    setas (Down) movem E seleccionam a opcao; o Space confirma a focada. Para a 1a
+    opcao (indice 0) basta o Space (o foco entra na 1a). A CONFIRMAR no cartorio se
+    a seta certa e Down/Right e se o Space e mesmo preciso.
+    """
+    for _ in range(max(0, indice)):
+        pyautogui.press("down")
+        time.sleep(0.1)
+    pyautogui.press("space")
+    time.sleep(0.1)
+
+
 def dropdown_por_setas(n_baixo: int) -> None:
     """Dropdown de SELECAO (ex: Estado Civil, Regime - os cinzentos): premir Down
     n vezes para chegar a opcao pretendida (n=1 -> primeira opcao da lista).

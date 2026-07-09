@@ -124,8 +124,13 @@ def fluxo_cv(campos: dict[str, Any]) -> None:
         time.sleep(0.5)
 
     # === BENS ===
-    for i, b in enumerate(campos.get("bens", []), 1):
-        print(f"\n[Bem {i}/{len(campos['bens'])}]")
+    bens = campos.get("bens", [])
+    for i, b in enumerate(bens, 1):
+        print(f"\n[Bem {i}/{len(bens)}]")
+        # O form do Bem tem 'Preco da venda'. Numa CV de UM bem, e o preco da CV.
+        # Com varios bens a repartição nao e obvia -> deixar para a funcionaria.
+        if len(bens) == 1 and campos.get("preco_venda") is not None:
+            b = {**b, "preco_venda": campos["preco_venda"]}
         _abrir_form_bem()
         preencher_bem(b)
         _confirmar_ok()
