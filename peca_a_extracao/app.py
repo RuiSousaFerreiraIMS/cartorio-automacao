@@ -1154,80 +1154,99 @@ if st.session_state.get("robo_lancado"):
 
     itens_disponiveis = _lista_para_botoes(obj)
     if itens_disponiveis:
-        # Estado: mensagem de lancamento (sessao) + resultado do robo (robo_status.json)
-        lancou = st.session_state.get("ultimo_robo_status")
-        if lancou and lancou.get("code") == 98:
-            st.error(f"❌ Erro a lançar robô: {lancou['stderr']}")
-        elif lancou and lancou.get("msg"):
-            st.info(f"🤖 {lancou['msg']}")
+        _sp = os.path.join(os.path.dirname(CAMINHO_JSON), "robo_status.json")
 
-        _status_path = os.path.join(os.path.dirname(CAMINHO_JSON), "robo_status.json")
-        _st = None
-        if os.path.exists(_status_path):
+        # Placeholder unico de estado, no topo. Actualiza-se AO VIVO enquanto o
+        # robo preenche (poll do robo_status.json), sem botoes Atualizar/Limpar:
+        # '⏳ a preencher...' passa sozinho a '✓ preenchido'.
+        status_ph = st.empty()
+
+        def _mostrar_estado(ph, rotulo, estado, msg):
+            if estado == "ok":
+                ph.success(f"✓ {rotulo}: {msg}")
+            elif estado == "a_preencher":
+                ph.info(f"⏳ {rotulo}: {msg}")
+            elif estado == "empresa":
+                ph.warning(f"🏢 {rotulo}: {msg}")
+            elif estado:
+                ph.error(f"⚠️ {rotulo}: {msg}")
+
+        # Mostrar o ultimo estado conhecido (se houver ficheiro de um run anterior)
+        _s0 = None
+        if os.path.exists(_sp):
             try:
-                with open(_status_path, encoding="utf-8") as _f:
-                    _st = json.load(_f)
+                with open(_sp, encoding="utf-8") as _f:
+                    _s0 = json.load(_f)
             except Exception:
-                _st = None
-        if _st:
-            _estado, _msg, _rot = _st.get("estado"), _st.get("msg", ""), _st.get("rotulo", "")
-            if _estado == "ok":
-                st.success(f"✓ {_rot}: {_msg}")
-            elif _estado == "a_preencher":
-                st.info(f"⏳ {_rot}: {_msg}")
-            elif _estado:
-                st.error(f"✗ {_rot}: {_msg}")
-
-        _s1, _s2, _ = st.columns([1, 1, 4])
-        with _s1:
-            if st.button("Atualizar", key="refresh_status"):
-                st.rerun()
-        with _s2:
-            if st.button("Limpar", key="dispensar_status"):
-                st.session_state.ultimo_robo_status = None
-                st.rerun()
+                _s0 = None
+        if _s0:
+            _mostrar_estado(status_ph, _s0.get("rotulo", ""), _s0.get("estado"), _s0.get("msg", ""))
 
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        # Render de TODOS os itens primeiro; so depois lancamos/pollamos (senao a
+        # lista desaparecia durante o preenchimento).
+        _idx_clicado = None
+        _rotulo_clicado = None
         for idx, (rotulo, subtitulo) in enumerate(itens_disponiveis):
             c1, c2 = st.columns([3, 1])
             with c1:
                 st.markdown(f"**{rotulo}**  ·  {subtitulo}")
             with c2:
-                if st.button(f"▶ Preencher", key=f"preench_btn_{idx}", use_container_width=True):
-                    import subprocess
-                    import sys as _sys
-                    caminho_robo = os.path.abspath(
-                        os.path.join(os.path.dirname(__file__), "..", "peca_b_robo", "robo.py")
-                    )
-                    env = os.environ.copy()
-                    env["PYTHONIOENCODING"] = "utf-8"
-                    # CREATE_NO_WINDOW = 0x08000000 (sem consola visivel). O robo
-                    # espera o SIMN ganhar foco e arranca sozinho; escreve o estado
-                    # em robo_status.json, que a app le e mostra aqui em cima.
-                    try:
-                        # limpar o estado antigo para nao mostrar resultado doutro run
-                        _sp = os.path.join(os.path.dirname(CAMINHO_JSON), "robo_status.json")
+                if st.button("▶ Preencher", key=f"preench_btn_{idx}", use_container_width=True):
+                    _idx_clicado = idx
+                    _rotulo_clicado = rotulo
+
+        if _idx_clicado is not None:
+            import subprocess
+            import sys as _sys
+            import time as _time
+            caminho_robo = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "peca_b_robo", "robo.py")
+            )
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+            # limpar o estado antigo para nao mostrar resultado doutro run
+            try:
+                if os.path.exists(_sp):
+                    os.remove(_sp)
+            except Exception:
+                pass
+            try:
+                # CREATE_NO_WINDOW = 0x08000000 (sem consola visivel). O robo espera
+                # o SIMN ganhar foco e arranca sozinho.
+                subprocess.Popen(
+                    [_sys.executable, caminho_robo, "--idx", str(_idx_clicado),
+                     os.path.abspath(CAMINHO_JSON)],
+                    creationflags=0x08000000,
+                    env=env,
+                )
+            except Exception as e:
+                status_ph.error(f"❌ Erro a lançar robô: {e}")
+            else:
+                # Poll AO VIVO ate o robo terminar (ou timeout). Bloqueia este run,
+                # mas e' esse o efeito desejado: a funcionaria esta no SIMN e ve o
+                # estado a mudar sozinho ('⏳ a preencher...' -> '✓ preenchido').
+                status_ph.info(
+                    f"⏳ {_rotulo_clicado}: a arrancar... vai ao SIMN e clica no 1º campo do form."
+                )
+                _fim = _time.time() + 50
+                _ultimo_estado = None
+                while _time.time() < _fim:
+                    _time.sleep(1.0)
+                    _s = None
+                    if os.path.exists(_sp):
                         try:
-                            if os.path.exists(_sp):
-                                os.remove(_sp)
+                            with open(_sp, encoding="utf-8") as _f:
+                                _s = json.load(_f)
                         except Exception:
-                            pass
-                        subprocess.Popen(
-                            [_sys.executable, caminho_robo, "--idx", str(idx),
-                             os.path.abspath(CAMINHO_JSON)],
-                            creationflags=0x08000000,
-                            env=env,
-                        )
-                        st.session_state.ultimo_robo_status = {
-                            "rotulo": rotulo, "code": None,
-                            "stdout": "", "stderr": "",
-                            "msg": f"{rotulo}: vai ao SIMN e clica no campo Nº Contribuinte. "
-                                   f"Arranca sozinho. (Carrega Atualizar para ver o resultado.)",
-                        }
-                    except Exception as e:
-                        st.session_state.ultimo_robo_status = {
-                            "rotulo": rotulo, "code": 98,
-                            "stdout": "", "stderr": f"Erro a lançar robô: {e}",
-                            "msg": None,
-                        }
-                    st.rerun()
+                            _s = None
+                    if _s:
+                        _ultimo_estado = _s.get("estado")
+                        _mostrar_estado(status_ph, _rotulo_clicado, _ultimo_estado, _s.get("msg", ""))
+                        if _ultimo_estado in ("ok", "erro", "empresa"):
+                            break
+                if _ultimo_estado not in ("ok", "erro", "empresa"):
+                    status_ph.warning(
+                        f"{_rotulo_clicado}: sem resposta a tempo. Se já preencheu no SIMN, ignora; "
+                        "senão clica ▶ Preencher outra vez."
+                    )

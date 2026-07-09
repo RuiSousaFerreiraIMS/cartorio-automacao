@@ -149,7 +149,7 @@ def mostrar_menu(items: list) -> str | None:
 def _escrever_status(estado: str, rotulo: str, msg: str) -> None:
     """Escreve o estado do robo em partilha/robo_status.json para a app mostrar.
 
-    estado: 'a_preencher' | 'ok' | 'erro'.
+    estado: 'a_preencher' | 'ok' | 'erro' | 'empresa'.
     """
     caminho = os.path.join(os.path.dirname(__file__), "..", "partilha", "robo_status.json")
     try:
@@ -186,7 +186,7 @@ def modo_batch(caminho_json: str, idx: int) -> int:
     # errado) - avisar a funcionaria para o fazer a mao no 'Novo Outorgante Colectivo'.
     if tipo not in ("bem", "duc") and dados.get("e_empresa"):
         _escrever_status(
-            "erro", rotulo,
+            "empresa", rotulo,
             f"{dados.get('nome') or 'entidade'} e uma EMPRESA. Abre 'Novo Outorgante "
             "Colectivo' e preenche a mao (este form ainda nao esta automatizado).",
         )
