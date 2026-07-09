@@ -76,9 +76,17 @@ def selecionar_dropdown(valor: str | None) -> None:
     if not valor:
         return
     v = _sem_acentos(str(valor)).strip().lower()
-    if v:
-        pyautogui.write(v, interval=0.06)
-        time.sleep(0.25)
+    if not v:
+        return
+    pyautogui.write(v, interval=0.06)
+    time.sleep(0.25)
+    # ENTER confirma a opcao e FECHA o popup do combo. Sem isto, o popup fica
+    # aberto e os Tabs seguintes navegam DENTRO da lista em vez de avancar de
+    # campo, desalinhando tudo a jusante (bug do video 103141: so o Concelho
+    # ficava preenchido). Num combo com popup aberto, o Enter e consumido pelo
+    # combo (nao aciona o botao OK do dialogo).
+    pyautogui.press("enter")
+    time.sleep(0.15)
 
 
 # -----------------------------------------------------------------------------
