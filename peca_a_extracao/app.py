@@ -1138,7 +1138,8 @@ if st.session_state.get("robo_lancado"):
         ]:
             lista = getattr(cv_obj, lista_attr, None) or []
             for i, o in enumerate(lista, 1):
-                items.append((f"{tipo} {i}", f"{o.nome or '?'} · NIF {o.nif or '?'}"))
+                emp = "🏢 EMPRESA · " if getattr(o, "e_empresa", False) else ""
+                items.append((f"{tipo} {i}", f"{emp}{o.nome or '?'} · NIF {o.nif or '?'}"))
         # autor_heranca (habilitacao/partilha)
         autor = getattr(cv_obj, "autor_heranca", None)
         if autor:

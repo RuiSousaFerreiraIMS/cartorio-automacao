@@ -14,12 +14,13 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import pyautogui
+
 from robo_actions import (
     dropdown_por_setas,
     escrever,
     escrever_dropdown,
     ler_campo_atual,
-    radio_selecionar,
     tab,
     tab_ctrl,
 )
@@ -96,15 +97,20 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     tab()
     time.sleep(0.6)  # SIMN pode consultar base
 
-    # 1. Nome (texto) - verificar autopreenchimento
+    # 1. Nome (texto) - verificar autopreenchimento.
+    # Se o SIMN reconhece o NIF, autopreenche Nome + Morada + Localidade a partir
+    # da base, MAS deixa vazios campos obrigatorios (Naturalidade, Estado Civil,
+    # Concelho/Freguesia da morada). Antes o robo parava aqui; agora CONTINUA e
+    # preenche esses obrigatorios, saltando apenas os que o SIMN ja encheu (para
+    # nao lutar com a base). O `reconhecido` liga/desliga esses saltos.
     nome_atual = ler_campo_atual()
-    if nome_atual:
-        print(f"  -> Cliente reconhecido na base: {nome_atual!r}")
-        return "reconhecido"
-
-    print("  -> Cliente novo, a preencher form completo.")
-    escrever(o.get("nome", ""))
-    tab()
+    reconhecido = bool(nome_atual)
+    if reconhecido:
+        print(f"  -> Cliente reconhecido na base: {nome_atual!r}. Completo obrigatorios.")
+    else:
+        print("  -> Cliente novo, a preencher form completo.")
+        escrever(o.get("nome", ""))
+    tab()      # move para fora do Nome (escrevemos ou nao)
 
     # 2-4. Checkboxes (Estatuto Emigrante / Contab / IVA) - saltar
     tab(3)
@@ -125,12 +131,14 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 8. STOP FANTASMA (controlo invisivel entre a Naturalidade e a Morada)
     tab()      # -> Morada
 
-    # 9. Morada (rua + numero) - texto
-    escrever(o.get("morada", ""))
+    # 9. Morada (rua + numero) - texto. Se reconhecido, o SIMN ja o encheu: saltar.
+    if not reconhecido:
+        escrever(o.get("morada", ""))
     tab()      # -> Localidade
 
-    # 10. Localidade - texto (OBRIGATORIO)
-    escrever(o.get("morada_localidade", ""))
+    # 10. Localidade - texto. Idem: se reconhecido, ja vem da base.
+    if not reconhecido:
+        escrever(o.get("morada_localidade", ""))
     tab()      # -> Codigo Postal 1
 
     # 11-13. Codigo Postal (CP1 / CP2 / localidade do CP) - saltar
@@ -189,7 +197,7 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
             escrever(o["conjuge_de_nif"])
         # 23. Nome Conj.: deixar vazio, o SIMN puxa da base pelo NIF
 
-    return "preenchido"
+    return "reconhecido" if reconhecido else "preenchido"
 
 
 # -----------------------------------------------------------------------------
@@ -257,11 +265,19 @@ def preencher_bem(b: dict[str, Any]) -> str:
 
     # Moradas (textarea): escrever e SAIR com Ctrl+Tab (o Tab normal fica preso la).
     escrever(b.get("morada", ""))
-    tab_ctrl()  # -> radio Urbano/Rustico
+    tab_ctrl()  # -> Urbano (1o dos DOIS radio-stops)
 
-    # Urbano/Rustico (radio). 0 = Urbano (default assumido), 1 = Rustico.
-    radio_selecionar(1 if b.get("tipo") == "R" else 0)
-    tab()       # -> Artigo (00)
+    # Urbano/Rustico sao DOIS tab-stops SEPARADOS (nao um grupo de setas).
+    # Teste 2026-07-09: o Space seleccionou o Urbano mas havia 1 stop a mais (o
+    # Rustico) antes do Artigo, que empurrava tudo 1 campo (o "D" da fraccao caiu
+    # no Artigo). Correccao: passar SEMPRE os dois radio-stops, com Space no certo.
+    if b.get("tipo") == "R":
+        tab()                       # Urbano -> Rustico
+        pyautogui.press("space")    # selecciona Rustico
+        tab()                       # Rustico -> Artigo
+    else:
+        pyautogui.press("space")    # selecciona Urbano (default)
+        tab(2)                      # Urbano -> Rustico -> Artigo
 
     # 00 Artigo (texto). Regra do notario: so o numero, sem sufixo (ja normalizado).
     escrever(b.get("artigo_matricial", ""))

@@ -171,7 +171,8 @@ def modo_batch(caminho_json: str, idx: int) -> int:
     que a funcionaria clica no campo do SIMN. O estado vai para robo_status.json
     (a app le e mostra), nao para a consola.
 
-    Return code: 0=sucesso, 1=idx invalido, 2=SIMN nao ganhou foco, 3=erro.
+    Return code: 0=sucesso, 1=idx invalido, 2=SIMN nao ganhou foco, 3=erro,
+    4=empresa (Outorgante Colectivo, ainda a preencher a mao).
     """
     campos = carregar_json(caminho_json)
     items = listar_itens(campos)
@@ -179,6 +180,18 @@ def modo_batch(caminho_json: str, idx: int) -> int:
         _escrever_status("erro", f"idx {idx}", f"fora de gama ({len(items)} itens).")
         return 1
     rotulo, tipo, dados = items[idx]
+
+    # EMPRESA (Outorgante Colectivo): o form e DIFERENTE do singular e ainda nao
+    # esta calibrado/automatizado. Nao correr o filler singular (encheria o form
+    # errado) - avisar a funcionaria para o fazer a mao no 'Novo Outorgante Colectivo'.
+    if tipo not in ("bem", "duc") and dados.get("e_empresa"):
+        _escrever_status(
+            "erro", rotulo,
+            f"{dados.get('nome') or 'entidade'} e uma EMPRESA. Abre 'Novo Outorgante "
+            "Colectivo' e preenche a mao (este form ainda nao esta automatizado).",
+        )
+        return 4
+
     fill_fn, primeiro_campo = _dispatch(tipo)
 
     # Bem de uma CV de UM so bem: injectar o preco da venda (o form do Bem tem
@@ -261,6 +274,12 @@ def main() -> None:
             break
 
         rotulo, tipo, dados = items[idx]
+        if tipo not in ("bem", "duc") and dados.get("e_empresa"):
+            print(f"\n  ⚠️  {rotulo} e uma EMPRESA (Outorgante Colectivo). Esse form")
+            print("      ainda nao esta automatizado: abre 'Novo Outorgante Colectivo'")
+            print("      e preenche a mao.")
+            input("Enter para voltar ao menu... ")
+            continue
         fill_fn, primeiro_campo = _dispatch(tipo)
         if tipo == "bem":
             bens = campos.get("bens", [])
