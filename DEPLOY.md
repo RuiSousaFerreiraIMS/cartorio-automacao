@@ -1,5 +1,11 @@
 # Deploy no PC do cartório
 
+> **NOTA (2026-07-09):** para instalar nos PCs das funcionárias usa antes o
+> **[INSTALACAO.md](INSTALACAO.md)** + o script `instalar.ps1` (instala tudo com
+> logs e corre o verificador automático). Este DEPLOY.md fica como referência
+> manual detalhada, mas o exemplo de chave abaixo ainda usa Groq; o provedor
+> atual é **Claude** (`LLM_PROVIDER=claude`, `ANTHROPIC_API_KEY=sk-ant-...`).
+
 Guia único para instalar o sistema num PC novo do cartório. ~15 minutos.
 
 ## 0. Pré-requisitos

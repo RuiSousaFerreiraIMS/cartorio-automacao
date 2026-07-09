@@ -13,6 +13,12 @@ partilha/campos.json
 peca_a_extracao/saidas/
 peca_a_extracao/saida*.json
 
+# Logs de instalacao (gerados por PC, nao versionar)
+logs/
+
+# Estado do robo (gerado localmente)
+partilha/robo_status.json
+
 # Debug / testes ad-hoc
 _DEBUG_*
 dump_simn_*.txt
