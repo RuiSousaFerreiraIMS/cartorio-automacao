@@ -153,9 +153,10 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
         if rb_idx is not None:
             dropdown_por_setas(rb_idx + 2)  # +2 igual ao Estado Civil (1a seta so abre)
             tab()  # confirma
-        tab()      # avanca -> stop 19
-        tab(3)     # 19-21 stops fantasma -> stop 22 (NIF Conjuge)
-        # 22. NIF Conjuge (texto)
+        tab()      # avanca -> NIF Conjuge (logo a seguir ao Regime; NAO ha stops
+                   # fantasma aqui - o calibrador enganou-se, a observacao do notario
+                   # manda: Regime -> Tab confirma -> Tab -> NIF Conjuge).
+        # NIF Conjuge (texto)
         if o.get("conjuge_de_nif"):
             escrever(o["conjuge_de_nif"])
         # 23. Nome Conj.: deixar vazio, o SIMN puxa da base pelo NIF
