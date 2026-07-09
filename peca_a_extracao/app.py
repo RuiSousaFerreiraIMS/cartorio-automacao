@@ -600,11 +600,14 @@ def editar_outorgante(prefixo, indice, o):
     )
 
     c1, c2 = st.columns(2)
-    o.naturalidade = _vazio_para_none(
-        c1.text_input("Naturalidade", o.naturalidade or "", key=k("nat"))
+    o.naturalidade_concelho = _vazio_para_none(
+        c1.text_input("Naturalidade — Concelho", o.naturalidade_concelho or "", key=k("natc"))
+    )
+    o.naturalidade_freguesia = _vazio_para_none(
+        c2.text_input("Naturalidade — Freguesia", o.naturalidade_freguesia or "", key=k("natf"))
     )
     o.nacionalidade = _vazio_para_none(
-        c2.text_input("Nacionalidade", o.nacionalidade or "", key=k("nac"))
+        st.text_input("Nacionalidade", o.nacionalidade or "", key=k("nac"))
     )
 
     o.morada = _vazio_para_none(st.text_input("Morada", o.morada or "", key=k("mor")))

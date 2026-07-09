@@ -115,7 +115,8 @@ Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
   "data_escritura": "AAAA-MM-DD",
   "vendedores": [{"nif": "...", "nome": "...", "e_empresa": false,
                   "estado_civil": "casado", "regime_bens": "comunhao_de_adquiridos",
-                  "conjuge_de_nif": "...", "naturalidade": "...", "nacionalidade": "...",
+                  "conjuge_de_nif": "...", "naturalidade_concelho": "...",
+                  "naturalidade_freguesia": "...", "nacionalidade": "...",
                   "morada": "...", "doc_identificacao": "...", "quota_parte": "1/1"}],
   "compradores": [ ... igual aos vendedores ... ],
   "bens": [{"designacao_fracao": "P", "descricao_predial": "...",
@@ -140,8 +141,13 @@ Regras importantes:
   respectivamente". Cria DOIS outorgantes, um por pessoa, cada um com o seu NIF, e poe
   em cada um o conjuge_de_nif a apontar para o outro.
 - NIF: remove espacos (ex "222 350 245" -> "222350245").
-- estado_civil: solteiro/casado/divorciado/viuvo/uniao_de_facto/desconhecido.
+- estado_civil: solteiro/casado/divorciado/viuvo/uniao_de_facto/desconhecido. OBRIGATORIO no
+  SIMN, esforca-te sempre por o obter.
 - regime_bens: comunhao_de_adquiridos/comunhao_geral/separacao_de_bens/nao_aplicavel.
+- naturalidade_concelho e naturalidade_freguesia: a escritura diz "natural da freguesia de X,
+  concelho de Y" (ou so "natural de X"). Preenche os DOIS. Se so vier a freguesia (ex "natural
+  de Turquel"), INFERE o concelho a que pertence (Turquel -> Alcobaca). Se so vier o concelho,
+  poe so o concelho. NUNCA metas a freguesia no campo do concelho. E OBRIGATORIO no SIMN.
 - preco_venda: o valor por extenso na escritura (ex "DUZENTOS E OITENTA MIL EUROS" = 280000.0).
 - valor_patrimonial: o VPT da fracao se mencionado.
 - hipoteca_a_cancelar: true se o texto fala em cancelamento de hipoteca existente.

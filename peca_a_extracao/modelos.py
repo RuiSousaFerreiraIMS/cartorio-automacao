@@ -101,7 +101,15 @@ class Outorgante(_Base):
     conjuge_de_nif: Optional[str] = Field(
         None, description="Se casado e o conjuge tambem e outorgante, o NIF do conjuge."
     )
-    naturalidade: Optional[str] = None
+    naturalidade: Optional[str] = None  # legado (campo unico); usar os dois abaixo
+    naturalidade_concelho: Optional[str] = Field(
+        None,
+        description="Concelho de naturalidade (o SIMN pede o Concelho em separado). "
+                    "Se a escritura so der a freguesia, inferir o concelho a que pertence.",
+    )
+    naturalidade_freguesia: Optional[str] = Field(
+        None, description="Freguesia de naturalidade."
+    )
     nacionalidade: Optional[str] = None
     morada: Optional[str] = None
     doc_identificacao: Optional[str] = Field(
