@@ -66,26 +66,30 @@ def _sem_acentos(texto: str) -> str:
     return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
 
 
-def selecionar_dropdown(valor: str | None) -> None:
-    """Seleciona um valor num dropdown Java Swing por navegacao de teclado.
-
-    Escreve as letras do valor (sem acentos, minusculas): o combo salta para a
-    opcao que comeca por esse prefixo. NAO usa paste (Ctrl+V nao seleciona num
-    combo). Se o valor estiver vazio, nao faz nada (deixa o default do SIMN).
+def escrever_dropdown(valor: str | None) -> None:
+    """Dropdown de ESCRITA (ex: Naturalidade Concelho/Freguesia): escreve as
+    letras do valor (sem acentos, minusculas) para o combo saltar para a opcao
+    por prefixo. NAO faz paste (nao seleciona num combo) nem Tab/Enter: quem
+    chama confirma com Tab e avanca com outro Tab (metodo do notario).
     """
     if not valor:
         return
     v = _sem_acentos(str(valor)).strip().lower()
-    if not v:
-        return
-    pyautogui.write(v, interval=0.06)
-    time.sleep(0.25)
-    # ENTER confirma a opcao e FECHA o popup do combo. Sem isto, o popup fica
-    # aberto e os Tabs seguintes navegam DENTRO da lista em vez de avancar de
-    # campo, desalinhando tudo a jusante (bug do video 103141: so o Concelho
-    # ficava preenchido). Num combo com popup aberto, o Enter e consumido pelo
-    # combo (nao aciona o botao OK do dialogo).
-    pyautogui.press("enter")
+    if v:
+        pyautogui.write(v, interval=0.06)
+        time.sleep(0.25)
+
+
+def dropdown_por_setas(n_baixo: int) -> None:
+    """Dropdown de SELECAO (ex: Estado Civil, Regime - os cinzentos): premir Down
+    n vezes para chegar a opcao pretendida (n=1 -> primeira opcao da lista).
+    Depois quem chama confirma com Tab e avanca com outro Tab. E o metodo do
+    notario para estes dropdowns (a letra unica nao serve: 's' ia para Separado
+    em vez de Solteiro).
+    """
+    for _ in range(max(0, n_baixo)):
+        pyautogui.press("down")
+        time.sleep(0.1)
     time.sleep(0.15)
 
 

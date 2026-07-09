@@ -17,10 +17,10 @@ from typing import Any
 import pyautogui
 
 from robo_actions import (
-    dropdown_por_letra,
+    dropdown_por_setas,
     escrever,
+    escrever_dropdown,
     ler_campo_atual,
-    selecionar_dropdown,
     tab,
 )
 
@@ -65,14 +65,14 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     e ele. Alem disso os campos so ativam ao CONFIRMAR o Estado Civil. Por isso
     o robo para no Estado Civil e a funcionaria completa Regime + NIF Conjuge.
 
-    REGRA DE OURO (video 150041): num DROPDOWN nunca usar escrever() (que faz
-    Ctrl+V / paste) - o paste nao seleciona no combo, e uma string errada abre o
-    popup e desalinha tudo. Para dropdowns usa-se selecionar_dropdown() (escreve
-    as letras do valor, sem acentos, para o combo saltar por prefixo) ou
-    dropdown_por_letra() nos de letra unica (Estado Civil / Regime). O erro antigo
-    foi escrever a FREGUESIA no campo do CONCELHO; agora a extracao separa os dois
-    (naturalidade_concelho / naturalidade_freguesia), por isso o valor certo bate
-    no item certo. escrever() so nos campos de TEXTO (NIF, Nome, Morada, NIF Conj).
+    DOIS TIPOS DE DROPDOWN (metodo do notario, teclado):
+      - de ESCRITA (Naturalidade Concelho/Freguesia): escrever_dropdown(valor)
+        escreve as letras -> Tab confirma (fecha o popup, absorvido) -> Tab avanca.
+      - de SELECAO / cinzentos (Estado Civil, Regime): dropdown_por_setas(n) preme
+        Down n vezes ate a opcao -> Tab confirma -> Tab avanca. A letra unica NAO
+        serve ('s' ia para Separado em vez de Solteiro).
+    escrever() (Ctrl+V/paste) SO nos campos de TEXTO (NIF, Nome, Morada, NIF Conj):
+    paste num combo nao seleciona e desalinha tudo.
     """
     print(f"  A preencher outorgante: {o.get('nome', '?')} (NIF {o.get('nif', '?')})")
 
@@ -94,16 +94,21 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 2-4. Checkboxes (Estatuto Emigrante / Contab / IVA) - saltar
     tab(3)
 
-    # 5. Naturalidade Concelho (dropdown - key-select pelo texto do concelho)
-    selecionar_dropdown(o.get("naturalidade_concelho"))
-    tab()
-    # 6. Naturalidade Freguesia (dropdown - pode filtrar pelo concelho escolhido)
-    selecionar_dropdown(o.get("naturalidade_freguesia"))
-    tab()
-    # 7. Naturalidade Pais (deixar Portugal por defeito)
-    tab()
+    # 5. Naturalidade Concelho (dropdown de ESCRITA). Metodo do notario:
+    # escrever -> Tab confirma (fecha o popup, e absorvido) -> Tab avanca.
+    if o.get("naturalidade_concelho"):
+        escrever_dropdown(o["naturalidade_concelho"])
+        tab()  # confirma
+    tab()      # avanca -> Freguesia
+    # 6. Naturalidade Freguesia (dropdown de ESCRITA)
+    if o.get("naturalidade_freguesia"):
+        escrever_dropdown(o["naturalidade_freguesia"])
+        tab()  # confirma
+    tab()      # avanca -> Pais
+    # 7. Naturalidade Pais (deixar Portugal): so avancar
+    tab()      # -> stop fantasma
     # 8. STOP FANTASMA (controlo invisivel entre a Naturalidade e a Morada)
-    tab()
+    tab()      # -> Morada
 
     # 9. Morada Morada (texto livre - seguro escrever)
     escrever(o.get("morada", ""))
@@ -115,31 +120,35 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 14-16. Morada Concelho / Freguesia / Pais (dropdowns, saltar - funcionaria)
     tab(3)
 
-    # 17. Estado Civil (dropdown de letra unica). Escolher CASADO ativa os campos
-    # Regime / NIF Conjuge (cinzentos ate la); damos uma folga antes de avancar
-    # para eles ativarem, senao o Tab salta-os.
-    ec_letra = {
-        "solteiro": "s", "casado": "c", "divorciado": "d",
-        "viuvo": "v", "uniao_de_facto": "u",
-    }.get(str(o.get("estado_civil", "")).lower(), "")
-    if ec_letra:
-        dropdown_por_letra(ec_letra)
-        time.sleep(0.4)  # deixar o SIMN ativar Regime / NIF Conjuge
-    tab()  # confirma Estado Civil e avanca -> Regime (stop 18)
+    # 17. Estado Civil (dropdown de SELECAO / cinzento). Metodo do notario: Down
+    # navega ate a opcao -> Tab confirma -> Tab avanca. Ordem no SIMN:
+    #   0 Casado(a)  1 Divorciado(a)  2 Separado(a)  3 Solteiro Maior
+    #   4 Solteiro Menor  5 Viuvo(a).   (n_baixo = indice + 1)
+    ec_idx = {
+        "casado": 0, "divorciado": 1, "separado": 2,
+        "solteiro": 3,  # -> Solteiro Maior
+        "viuvo": 5,
+    }.get(str(o.get("estado_civil", "")).lower())
+    if ec_idx is not None:
+        dropdown_por_setas(ec_idx + 1)
+        time.sleep(0.3)  # deixar ativar Regime/Conjuge quando casado
+        tab()  # confirma
+    tab()      # avanca -> Regime (se casado)
 
-    # Regime + NIF Conjuge so fazem sentido quando casado (senao ficam cinzentos).
-    # Mapa do calibrador: Regime=stop18, NIF Conjuge=stop22 (3 stops fantasma pelo meio).
+    # Regime + NIF Conjuge so quando casado (senao ficam cinzentos e nao sao stops).
     if o.get("estado_civil") == "casado":
-        # 18. Regime de Bens
-        rb_letra = {
-            "comunhao_de_adquiridos": "c",
-            "comunhao_geral": "c",  # ambos comecam por 'c'; 'c' pega no 1o (adquiridos)
-            "separacao_de_bens": "s",
-        }.get(str(o.get("regime_bens", "")).lower(), "")
-        if rb_letra:
-            dropdown_por_letra(rb_letra)
-        tab()          # -> stop 19
-        tab(3)         # 19-21 stops fantasma -> stop 22 (NIF Conjuge)
+        # 18. Regime (dropdown de SELECAO). Ordem: 0 comunhao de adquiridos,
+        #     1 comunhao geral de bens, 2 separacao de bens.
+        rb_idx = {
+            "comunhao_de_adquiridos": 0,
+            "comunhao_geral": 1,
+            "separacao_de_bens": 2,
+        }.get(str(o.get("regime_bens", "")).lower())
+        if rb_idx is not None:
+            dropdown_por_setas(rb_idx + 1)
+            tab()  # confirma
+        tab()      # avanca -> stop 19
+        tab(3)     # 19-21 stops fantasma -> stop 22 (NIF Conjuge)
         # 22. NIF Conjuge (texto)
         if o.get("conjuge_de_nif"):
             escrever(o["conjuge_de_nif"])
