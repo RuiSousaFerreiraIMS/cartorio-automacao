@@ -203,29 +203,95 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
 # -----------------------------------------------------------------------------
 # Form do OUTORGANTE COLECTIVO (empresa)
 # -----------------------------------------------------------------------------
+# O preenchimento COMPLETO do form Colectivo (para os ~10% de empresas que nao
+# estao na base) esta escrito abaixo mas DESLIGADO: os tab counts reais deste form
+# ainda NAO foram medidos com calibrar_form.py (o Bem provou que adivinhar os Tabs
+# desalinha tudo - radios que sao 2 stops, stops fantasma, etc). Enquanto False, o
+# robo so escreve o NIPC, que cobre os ~90% ja na base (o SIMN autopreenche).
+# COMO ACTIVAR: no cartorio, abrir 'Novo Outorgante Colectivo', cursor no NIPC,
+# correr `python peca_b_robo/calibrar_form.py --campos 30`, enviar o mapa, ajustar
+# os tab(N) abaixo e por esta constante a True.
+_EMPRESA_FORM_CALIBRADO = False
+
+
 def preencher_empresa(o: dict[str, Any]) -> str:
     """Preenche o form 'Dados Empresa' (Outorgante Colectivo).
 
     Regra do Rui (2026-07-09): ~90% das empresas JA estao na base do SIMN, por
-    isso basta escrever o NIPC no 1o campo e o SIMN autopreenche o resto (Nome,
-    Sede, etc). Para os ~10% que nao estao, a funcionaria completa a mao (o form
-    Colectivo completo ainda nao esta calibrado; se um dia for preciso, mapeia-se
-    com calibrar_form.py como se fez ao Bem).
+    isso basta escrever o NIPC e o SIMN autopreenche o resto (Nome, Sede, etc).
+    Os ~10% novos so se preenchem por inteiro DEPOIS de calibrar este form (ver
+    _EMPRESA_FORM_CALIBRADO acima).
 
     Pre-condicao: cursor no 1o campo (NIPC) do form 'Dados Empresa'.
     """
     print(f"  A preencher empresa: {o.get('nome', '?')} (NIPC {o.get('nif', '?')})")
 
-    # NIPC (texto) - mesmo mecanismo do outorgante singular reconhecido.
+    # NIPC (texto). O Tab dispara a consulta a base; se a empresa la estiver, o
+    # SIMN autopreenche Nome/Sede/etc.
     escrever(o.get("nif", ""))
     tab()
     time.sleep(0.6)  # SIMN consulta a base pelo NIPC
 
-    nome_atual = ler_campo_atual()
-    if nome_atual:
-        print(f"  -> Empresa reconhecida na base: {nome_atual!r}")
-        return "reconhecido"
-    print("  -> Empresa nao esta na base. A funcionaria completa o resto a mao.")
+    if not _EMPRESA_FORM_CALIBRADO:
+        # 90% dos casos: base ja tem a empresa. Os 10% novos ficam para a
+        # funcionaria (form completo por calibrar).
+        return "preenchido"
+
+    # === PREENCHIMENTO COMPLETO (empresa NOVA, nao na base) =====================
+    # SKELETON: ordem dos campos e metodo por campo estao certos (nota + screenshots
+    # de 2026-07-09); os tab(N) sao 1a ESTIMATIVA (1 stop entre campos), A CONFIRMAR
+    # com calibrar_form.py. Mesmos metodos do singular:
+    #   texto -> escrever + tab ; dropdown de ESCRITA (Concelho/Freguesia da sede)
+    #   -> escrever_dropdown + tab(confirma) + tab ; dropdown de SELECAO (Tipo,
+    #   Ident. Conservatoria) -> dropdown_por_setas(idx+2) + tab + tab ; radios ->
+    #   passar todos os stops (como Urbano/Rustico) ; checkboxes -> saltar.
+    # A sede reutiliza morada/morada_localidade/codigo_postal/morada_concelho/
+    # morada_freguesia (sao os mesmos campos).
+
+    # Dados Empresa: cursor esta agora em Capital Social (a seguir ao NIPC).
+    # Capital Social (moeda; assumir mask de centimos como no Bem/DUC - CONFIRMAR)
+    if o.get("capital_social") is not None:
+        escrever(_valor_simn(o["capital_social"]))
+    tab()       # -> Tipo (dropdown de SELECAO, default "Soc. por quotas")
+
+    # Tipo de sociedade. Ordem do dropdown por CONFIRMAR; deixar no default (quotas)
+    # e' o mais seguro ate calibrar, por isso so mexemos se nao for quotas.
+    ts_idx = {
+        "soc_quotas": 0, "soc_unipessoal": 1, "soc_anonima": 2,
+    }.get(str(o.get("tipo_sociedade") or "").lower())
+    if ts_idx:  # != 0 e != None: so quando difere do default
+        dropdown_por_setas(ts_idx + 2)  # +2 como no singular (1a seta so abre) - CONFIRMAR
+        tab()   # confirma
+    tab()       # -> Nome
+
+    # Nome / denominacao social (texto)
+    escrever(o.get("nome", ""))
+    tab()       # -> radios (Publica/Privada/Central/Regional-Local)
+
+    # Radios natureza + checkboxes (Contab. Organizada, IVA de caixa): deixar nos
+    # defaults (Privada, desmarcados). Passar os stops. Nº de stops A CONFIRMAR.
+    tab(2)      # radios + checkboxes -> Sede Morada  (ESTIMATIVA)
+
+    # Sede: Morada (texto)
+    escrever(o.get("morada", ""))
+    tab()       # -> Localidade
+    escrever(o.get("morada_localidade", ""))
+    tab()       # -> Codigo Postal
+    escrever(o.get("codigo_postal", ""))
+    tab()       # -> Concelho (dropdown de ESCRITA)
+
+    if o.get("morada_concelho"):
+        escrever_dropdown(o["morada_concelho"])
+        tab()   # confirma
+    tab()       # -> Freguesia (dropdown de ESCRITA)
+    if o.get("morada_freguesia"):
+        escrever_dropdown(o["morada_freguesia"])
+        tab()   # confirma
+    tab()       # -> Pais (deixar Portugal) -> so passar
+    tab()       # -> Ident. Conservatoria (dropdown de SELECAO)
+
+    # Ident. Conservatoria: dropdown de selecao, dificil de acertar por indice.
+    # Deixar para a funcionaria por agora (nao mexer). Fim do preenchimento.
     return "preenchido"
 
 
