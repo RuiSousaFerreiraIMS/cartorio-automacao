@@ -118,7 +118,9 @@ Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
                   "conjuge_de_nif": "...", "naturalidade_concelho": "...",
                   "naturalidade_freguesia": "...", "nacionalidade": "...",
                   "morada": "...", "morada_localidade": "...", "morada_concelho": "...",
-                  "morada_freguesia": "...", "doc_identificacao": "...", "quota_parte": "1/1"}],
+                  "morada_freguesia": "...", "codigo_postal": "...",
+                  "capital_social": null, "tipo_sociedade": null, "conservatoria_registo": null,
+                  "doc_identificacao": "...", "quota_parte": "1/1"}],
   "compradores": [ ... igual aos vendedores ... ],
   "bens": [{"designacao_fracao": "P", "descricao_predial": "...",
             "certidao_predial": "...", "artigo_matricial": "...",
@@ -144,6 +146,21 @@ Regras importantes:
   do ato e o outro e apenas mencionado como conjuge (ex "BELTRANA, casada com FULANO,
   compra") -> cria SO UM outorgante (BELTRANA) com conjuge_de_nif = NIF do FULANO. NAO cries
   o conjuge que nao e parte do ato como outorgante separado.
+- EMPRESA (sociedade/entidade): mete e_empresa=true e IGNORA os campos de pessoa
+  (estado_civil, regime_bens, conjuge_de_nif, naturalidade, doc_identificacao: deixa-os null
+  ou no default). Preenche:
+    * nome = denominacao social completa (ex "CONSTRUCOES FULANO, LDA").
+    * nif = o NIPC (9 digitos, sem espacos).
+    * capital_social = capital social em euros se mencionado ("capital social de cinco mil
+      euros" -> 5000.0); senao null.
+    * tipo_sociedade = infere da forma juridica: "..., Lda"/"por quotas" -> "soc_quotas";
+      "... Unipessoal Lda" -> "soc_unipessoal"; "..., S.A."/"anonima" -> "soc_anonima". Se
+      nao der para saber, null.
+    * conservatoria_registo = a Conservatoria do Registo Comercial onde esta matriculada, se
+      mencionada ("matriculada na Conservatoria do Registo Comercial de Alcobaca" ->
+      "Alcobaca"); senao null.
+    * A SEDE da empresa vai nos MESMOS campos da morada: morada (rua+numero), morada_localidade,
+      morada_concelho, morada_freguesia, codigo_postal.
 - NIF: remove espacos (ex "222 350 245" -> "222350245").
 - estado_civil: solteiro/casado/divorciado/viuvo/uniao_de_facto/desconhecido. OBRIGATORIO no
   SIMN, esforca-te sempre por o obter.

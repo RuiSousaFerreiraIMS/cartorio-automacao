@@ -69,6 +69,35 @@ def _normalizar_regime_bens(v):
     return mapa.get(s, s)
 
 
+def _normalizar_tipo_sociedade(v):
+    """Infere o tipo de sociedade a partir do texto/denominacao. None se vazio.
+
+    O SIMN pede um dropdown (default 'Soc. por quotas'). Aceitamos tanto o valor
+    do enum como a forma juridica escrita ('Lda', 'Unipessoal', 'S.A.') e a
+    denominacao completa (ex 'FULANO UNIPESSOAL LDA' -> unipessoal).
+    """
+    if v is None or v == "":
+        return None
+    if not isinstance(v, str):
+        return v
+    s = _sem_acentos(v).strip().lower()
+    # tokens alfanumericos: 'ACME, S.A.' -> ['acme', 's', 'a']; 'zeca, sa' -> ['zeca', 'sa']
+    import re
+    tokens = re.findall(r"[a-z0-9]+", s)
+    if "unipessoal" in s:
+        return "soc_unipessoal"
+    if "anonim" in s or "sa" in tokens or tokens[-2:] == ["s", "a"]:
+        return "soc_anonima"
+    if "quota" in s or "lda" in s or "limitada" in s:
+        return "soc_quotas"
+    return {
+        "soc_quotas": "soc_quotas",
+        "soc_unipessoal": "soc_unipessoal",
+        "soc_anonima": "soc_anonima",
+        "outra": "outra",
+    }.get(s.replace(" ", "_"), "outra")
+
+
 class EstadoCivil(str, Enum):
     solteiro = "solteiro"
     casado = "casado"
@@ -85,6 +114,18 @@ class RegimeBens(str, Enum):
     nao_aplicavel = "nao_aplicavel"
 
 
+class TipoSociedade(str, Enum):
+    """Forma juridica da empresa (dropdown 'Tipo' no form Dados Empresa do SIMN).
+
+    Default do SIMN e 'Soc. por quotas'. So preenchemos se a denominacao deixar
+    claro (Lda / Unipessoal / S.A.); caso contrario None e o SIMN fica no default.
+    """
+    quotas = "soc_quotas"           # Sociedade por quotas (Lda)
+    unipessoal = "soc_unipessoal"   # Sociedade unipessoal por quotas
+    anonima = "soc_anonima"         # Sociedade anonima (S.A.)
+    outra = "outra"
+
+
 class Outorgante(_Base):
     """
     Uma pessoa (ou entidade) que intervem na escritura.
@@ -96,6 +137,24 @@ class Outorgante(_Base):
     nif: Optional[str] = Field(None, description="NIF/NIPC sem espacos. Campo-chave para o SIMN.")
     nome: Optional[str] = Field(None, description="Nome completo ou denominacao social.")
     e_empresa: bool = Field(False, description="True se for sociedade/entidade, nao pessoa.")
+
+    # --- Campos de EMPRESA (Outorgante Colectivo). So preenchidos se e_empresa=True.
+    #     A sede reutiliza os campos morada/morada_localidade/morada_concelho/
+    #     morada_freguesia/codigo_postal ja existentes (sao os mesmos no SIMN). ---
+    capital_social: Optional[float] = Field(
+        None, description="Capital social em euros (form Dados Empresa). So empresa."
+    )
+    tipo_sociedade: Optional[TipoSociedade] = Field(
+        None,
+        description="Forma juridica (Lda/Unipessoal/S.A.). None => SIMN fica no default "
+                    "'Soc. por quotas'. So empresa.",
+    )
+    conservatoria_registo: Optional[str] = Field(
+        None,
+        description="Conservatoria onde a sociedade esta matriculada (Ident. Conservatoria "
+                    "no SIMN). So empresa.",
+    )
+
     estado_civil: EstadoCivil = EstadoCivil.desconhecido
     regime_bens: RegimeBens = RegimeBens.nao_aplicavel
     conjuge_de_nif: Optional[str] = Field(
@@ -121,6 +180,10 @@ class Outorgante(_Base):
     morada_freguesia: Optional[str] = Field(
         None, description="Freguesia da morada (dropdown no SIMN)."
     )
+    codigo_postal: Optional[str] = Field(
+        None, description="Codigo postal 'NNNN-NNN'. Usado na sede da empresa; no form "
+                          "pessoal o SIMN salta-o."
+    )
     doc_identificacao: Optional[str] = Field(
         None, description="Nº de cartao de cidadao ou titulo de residencia."
     )
@@ -135,6 +198,11 @@ class Outorgante(_Base):
     @classmethod
     def _val_regime_bens(cls, v):
         return _normalizar_regime_bens(v)
+
+    @field_validator("tipo_sociedade", mode="before")
+    @classmethod
+    def _val_tipo_sociedade(cls, v):
+        return _normalizar_tipo_sociedade(v)
 
 
 class Bem(_Base):

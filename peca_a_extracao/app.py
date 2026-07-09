@@ -31,7 +31,7 @@ import streamlit as st
 from extrator import extrair_de_ficheiro
 from modelos import (
     Bem, CompraVenda, DUC, Doacao, EstadoCivil, Habilitacao,
-    Outorgante, Partilha, RegimeBens,
+    Outorgante, Partilha, RegimeBens, TipoSociedade,
 )
 
 # ─────────────────────────────────────────────────────────────
@@ -571,6 +571,27 @@ def editar_outorgante(prefixo, indice, o):
     o.nome = _vazio_para_none(c2.text_input("Nome", o.nome or "", key=k("nome")))
     o.e_empresa = c3.checkbox("Empresa", o.e_empresa, key=k("emp"))
 
+    # Campos de EMPRESA (Outorgante Colectivo): so aparecem quando "Empresa" marcado.
+    # A sede reutiliza os campos de morada la em baixo (Localidade/Concelho/Freguesia/CP).
+    if o.e_empresa:
+        c1, c2, c3 = st.columns([2, 2, 3])
+        tipos = [None] + list(TipoSociedade)
+        try:
+            idx_ts = tipos.index(o.tipo_sociedade)
+        except ValueError:
+            idx_ts = 0
+        o.tipo_sociedade = c1.selectbox(
+            "Tipo de sociedade", tipos, index=idx_ts,
+            format_func=lambda t: "(default SIMN)" if t is None else t.value, key=k("tsoc"),
+        )
+        o.capital_social = c2.number_input(
+            "Capital social (EUR)", value=float(o.capital_social or 0.0), step=100.0,
+            key=k("cap"),
+        ) or None
+        o.conservatoria_registo = _vazio_para_none(
+            c3.text_input("Conservatória (registo)", o.conservatoria_registo or "", key=k("cons"))
+        )
+
     c1, c2 = st.columns(2)
     estados = list(EstadoCivil)
     try:
@@ -620,6 +641,9 @@ def editar_outorgante(prefixo, indice, o):
     )
     o.morada_freguesia = _vazio_para_none(
         c3.text_input("Morada — Freguesia", o.morada_freguesia or "", key=k("morf"))
+    )
+    o.codigo_postal = _vazio_para_none(
+        st.text_input("Código Postal (NNNN-NNN)", o.codigo_postal or "", key=k("cp"))
     )
     o.doc_identificacao = _vazio_para_none(
         st.text_input("Documento (CC / Título residência)",
