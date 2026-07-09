@@ -137,9 +137,12 @@ Regras importantes:
 - Os outorgantes aparecem em blocos "Primeiro:", "Segundo:", etc. QUEM VENDE sao os
   vendedores, QUEM COMPRA/ACEITA sao os compradores. Identifica pelo papel ("vendem ao
   segundo outorgante" => o primeiro bloco e vendedor), nao pela ordem cega.
-- Um bloco pode conter um CASAL: ex "FULANO e mulher BELTRANA, casados... NIF X e Y
-  respectivamente". Cria DOIS outorgantes, um por pessoa, cada um com o seu NIF, e poe
-  em cada um o conjuge_de_nif a apontar para o outro.
+- CASAL: cria dois outorgantes SO se AMBOS forem parte do ato (ambos vendem/compram). Ex
+  "FULANO e mulher BELTRANA vendem, NIF X e Y respectivamente" -> dois outorgantes, cada um
+  com o seu NIF e o conjuge_de_nif a apontar para o outro. Mas se SO UM dos conjuges e parte
+  do ato e o outro e apenas mencionado como conjuge (ex "BELTRANA, casada com FULANO,
+  compra") -> cria SO UM outorgante (BELTRANA) com conjuge_de_nif = NIF do FULANO. NAO cries
+  o conjuge que nao e parte do ato como outorgante separado.
 - NIF: remove espacos (ex "222 350 245" -> "222350245").
 - estado_civil: solteiro/casado/divorciado/viuvo/uniao_de_facto/desconhecido. OBRIGATORIO no
   SIMN, esforca-te sempre por o obter.
@@ -321,7 +324,8 @@ Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
   "data_escritura": "AAAA-MM-DD",
   "doadores": [{"nif": "...", "nome": "...", "e_empresa": false,
                 "estado_civil": "...", "regime_bens": "...", "conjuge_de_nif": "...",
-                "naturalidade": "...", "nacionalidade": "...", "morada": "...",
+                "naturalidade_concelho": "...", "naturalidade_freguesia": "...",
+                "nacionalidade": "...", "morada": "...",
                 "doc_identificacao": "...", "quota_parte": "1/1"}],
   "donatarios": [ ... igual aos doadores ... ],
   "bens": [{"designacao_fracao": null, "descricao_predial": "...",
@@ -338,7 +342,10 @@ Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
 Regras:
 - DOADORES: quem doa (gratuitamente). DONATARIOS: quem recebe.
 - Identifica pelo papel ("doa a sua filha" => filha e donataria).
-- Casais: 2 outorgantes ligados por conjuge_de_nif.
+- Casais: dois outorgantes SO se ambos forem parte do ato; se so um for parte, UM outorgante
+  com conjuge_de_nif a apontar para o conjuge (NAO cries o conjuge como outorgante separado).
+- naturalidade_concelho / naturalidade_freguesia: separa Concelho e Freguesia; se so vier a
+  freguesia, infere o concelho. estado_civil e naturalidade sao obrigatorios no SIMN.
 - valor_atribuido: valor declarado para efeitos fiscais (Imposto do Selo).
 - Se nao encontrares, poe null. Nunca inventes.
 """
@@ -360,7 +367,8 @@ Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
   "mnemonica": "HAB",
   "data_escritura": "AAAA-MM-DD",
   "autor_heranca": {"nif": "...", "nome": "...", "e_empresa": false,
-                    "estado_civil": "...", "naturalidade": "...", "nacionalidade": "...",
+                    "estado_civil": "...", "naturalidade_concelho": "...",
+                    "naturalidade_freguesia": "...", "nacionalidade": "...",
                     "morada": "...", "doc_identificacao": null},
   "data_obito": "AAAA-MM-DD",
   "com_testamento": false,
@@ -376,6 +384,8 @@ Regras:
 - com_testamento: true se a escritura menciona testamento ativo (cedula testamentaria).
 - herdeiros: lista dos herdeiros identificados (cnjuge, filhos, herdeiros universais).
 - declarantes: quem comparece e declara perante o notario (pode incluir herdeiros e/ou testemunhas).
+- Outorgantes (autor_heranca, herdeiros, declarantes): naturalidade em naturalidade_concelho +
+  naturalidade_freguesia (infere o concelho a partir da freguesia se preciso).
 - Se nao encontrares, poe null. Nunca inventes.
 """
 
@@ -408,11 +418,12 @@ Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
 
 Regras:
 - tipo_partilha: "hereditaria" (apos obito) ou "divorcio" ou outro.
-- Para hereditaria, autor_heranca = o falecido (com NIF, nome, estado_civil, naturalidade,
-  morada, etc), data_obito = data do obito.
+- Para hereditaria, autor_heranca = o falecido (com NIF, nome, estado_civil,
+  naturalidade_concelho, naturalidade_freguesia, morada, etc), data_obito = data do obito.
 - partilhantes: TODOS os que participam na partilha (conjuge, filhos, herdeiros).
   Para CADA partilhante preenche TODOS os campos pessoais disponiveis no texto:
-  NIF, nome, estado_civil, regime_bens, naturalidade, nacionalidade, morada,
+  NIF, nome, estado_civil, regime_bens, naturalidade_concelho, naturalidade_freguesia,
+  nacionalidade, morada,
   doc_identificacao, quota_parte. NAO uses null se a informacao estiver no documento.
 - bens: lista UM-A-UM todos os imoveis partilhados. Para CADA bem preenche o
   maximo de campos possivel: descricao_predial (numero/freguesia), artigo_matricial,
