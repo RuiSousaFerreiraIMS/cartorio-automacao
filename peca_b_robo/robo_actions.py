@@ -198,18 +198,17 @@ def janela_em_foco_titulo() -> str:
     return _info_janela_focada()[0]
 
 
-_PALAVRAS_SIMN = ("simn", "vendedor", "comprador", "doador", "donatario",
-                  "bem", "outorgante", "herdeiro", "partilhante", "escritura")
-
-
 def _e_janela_simn(titulo: str, classe: str, processo: str) -> bool:
-    """True se (titulo/classe/processo) pertencem a uma janela do SIMN."""
-    tlow = titulo.lower()
-    return (
-        any(p in tlow for p in _PALAVRAS_SIMN)
-        or classe.startswith("SunAwt")
-        or processo.lower() in ("java.exe", "javaw.exe")
-    )
+    """True se a janela em foco e o SIMN.
+
+    Reconhecemos SO por classe (Java Swing) ou processo (java). NAO usamos o
+    titulo: os dialogos do SIMN tem titulo vazio via Win32, e pior, o separador
+    do Chrome chama-se "Cartorio - Extracao de Escrituras" -> a palavra
+    "escritura" fazia a deteccao achar que o BROWSER era o SIMN e o robo
+    arrancava com o browser a frente (Ctrl+A na pagina, Tabs perdidos).
+    O Chrome e chrome.exe, nunca passa por isto.
+    """
+    return classe.startswith("SunAwt") or processo.lower() in ("java.exe", "javaw.exe")
 
 
 def esperar_foco_simn(timeout: float = 30.0) -> bool:
