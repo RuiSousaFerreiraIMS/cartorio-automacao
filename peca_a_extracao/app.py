@@ -1033,19 +1033,17 @@ render_topbar(obj)
 render_warnings(obj)
 RENDERERS[type(obj)](obj)
 
-# JSON preview (toggle)
-if st.session_state.get("show_json"):
-    st.markdown(f"""
-    <div style="background:#1A2A3F; border-radius:8px; padding:14px 16px; margin-top:16px;">
-      <div style="font-size:9px; font-weight:700; color:rgba(255,255,255,.3);
-                  text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px;">
-        Pré-visualização JSON · partilha/campos.json
-      </div>
-      <pre style="font-size:11px; color:#86EFAC; font-family:monospace;
-                  white-space:pre-wrap; word-break:break-word; line-height:1.7;
-                  margin:0; max-height:400px; overflow:auto;">{obj.model_dump_json(indent=2)}</pre>
-    </div>
-    """, unsafe_allow_html=True)
+# Gravar o campos.json automaticamente (contrato app<->robo). Sem botao, sem JSON a mostrar:
+# a funcionaria valida no ecra e usa os botoes Preencher; o ficheiro grava-se em silencio.
+try:
+    os.makedirs(os.path.dirname(CAMINHO_JSON), exist_ok=True)
+    obj.avisos = obj.validar_e_avisar()
+    with open(CAMINHO_JSON, "w", encoding="utf-8") as f:
+        f.write(obj.model_dump_json(indent=2))
+    st.session_state.exportado = True
+    st.session_state.robo_lancado = True  # seccao Preencher sempre visivel
+except Exception:
+    pass
 
 # Bottom bar (sticky)
 st.markdown(f"""
@@ -1061,34 +1059,13 @@ st.markdown(f"""
 <div class="bottom-bar" id="footer-anchor"></div>
 """, unsafe_allow_html=True)
 
-# Use Streamlit native buttons inside their own row, styled to sit at bottom
-st.markdown("<div style='height:60px;'></div>", unsafe_allow_html=True)
-c1, c2, c3, c4 = st.columns([2, 1, 1, 2])
-with c1:
-    if st.button("← Carregar outra escritura", key="reset_main"):
-        for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado", "show_json"):
-            st.session_state.pop(k, None)
-        st.rerun()
-with c2:
-    if st.button("{ } JSON", key="toggle_json"):
-        st.session_state.show_json = not st.session_state.get("show_json", False)
-        st.rerun()
-with c3:
-    if st.button("Exportar", key="export"):
-        os.makedirs(os.path.dirname(CAMINHO_JSON), exist_ok=True)
-        obj.avisos = obj.validar_e_avisar()
-        with open(CAMINHO_JSON, "w", encoding="utf-8") as f:
-            f.write(obj.model_dump_json(indent=2))
-        st.session_state.exportado = True
-        st.success(f"Exportado para {CAMINHO_JSON}")
-with c4:
-    if st.button("💾 Exportar JSON", type="primary", key="preencher_simn"):
-        os.makedirs(os.path.dirname(CAMINHO_JSON), exist_ok=True)
-        obj.avisos = obj.validar_e_avisar()
-        with open(CAMINHO_JSON, "w", encoding="utf-8") as f:
-            f.write(obj.model_dump_json(indent=2))
-        st.session_state.exportado = True
-        st.session_state.robo_lancado = True  # activa a secção "Preencher SIMN" em baixo
+# Botao unico: recomecar. (Exportar / JSON / pre-visualizacao removidos: nada
+# de codigo a mostrar a funcionaria; o campos.json ja se grava sozinho acima.)
+st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
+if st.button("← Carregar outra escritura", key="reset_main"):
+    for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado", "robo_lancado"):
+        st.session_state.pop(k, None)
+    st.rerun()
 
 # Instruções para a funcionária quando lança o robô
 if st.session_state.get("robo_lancado"):
@@ -1102,11 +1079,10 @@ if st.session_state.get("robo_lancado"):
       <div style="font-size:13px; color:#075985; line-height:1.7;">
         <b>Para cada outorgante:</b>
         <ol style="margin:6px 0 0 20px;">
-          <li>No <b>SIMN</b>: clica em <b>Adicionar</b> (Vendedor/Comprador/etc.) → <b>Novo Outorgante Singular</b> → form abre</li>
-          <li>Clica no campo <b>Nº Contribuinte</b> do form</li>
-          <li>Volta aqui, clica no botão azul do outorgante que queres preencher</li>
-          <li>Contagem 8s → Alt+Tab ao SIMN → robô preenche sozinho</li>
-          <li>Revê, clica <b>OK</b> no form do SIMN, passa ao próximo</li>
+          <li>No <b>SIMN</b>: <b>Adicionar</b> (Vendedor/Comprador/etc.) → <b>Novo Outorgante Singular</b></li>
+          <li>Aqui na app, clica <b>▶ Preencher</b> no outorgante certo</li>
+          <li>Vai ao <b>SIMN</b> e clica no campo <b>Nº Contribuinte</b>. O robô arranca sozinho assim que o SIMN estiver à frente.</li>
+          <li>Revê, clica <b>OK</b> no SIMN, passa ao próximo</li>
         </ol>
       </div>
     </div>
@@ -1131,15 +1107,36 @@ if st.session_state.get("robo_lancado"):
 
     outorgantes_disponiveis = _lista_para_botoes(obj)
     if outorgantes_disponiveis:
-        # Mostrar resultado persistente do ultimo run (sobrevive a reruns)
-        status = st.session_state.get("ultimo_robo_status")
-        if status:
-            if status.get("msg"):
-                st.info(f"🤖 {status['msg']}  \n\n**Alt+Tab para o SIMN AGORA.** "
-                        f"A janela preta vai contar 8s e depois preencher. Vê o resultado nela.")
-            elif status.get("code") == 98:
-                st.error(f"❌ Erro a lançar robô: {status['stderr']}")
-            if st.button("Dispensar mensagem", key="dispensar_status"):
+        # Estado: mensagem de lancamento (sessao) + resultado do robo (robo_status.json)
+        lancou = st.session_state.get("ultimo_robo_status")
+        if lancou and lancou.get("code") == 98:
+            st.error(f"❌ Erro a lançar robô: {lancou['stderr']}")
+        elif lancou and lancou.get("msg"):
+            st.info(f"🤖 {lancou['msg']}")
+
+        _status_path = os.path.join(os.path.dirname(CAMINHO_JSON), "robo_status.json")
+        _st = None
+        if os.path.exists(_status_path):
+            try:
+                with open(_status_path, encoding="utf-8") as _f:
+                    _st = json.load(_f)
+            except Exception:
+                _st = None
+        if _st:
+            _estado, _msg, _rot = _st.get("estado"), _st.get("msg", ""), _st.get("rotulo", "")
+            if _estado == "ok":
+                st.success(f"✓ {_rot}: {_msg}")
+            elif _estado == "a_preencher":
+                st.info(f"⏳ {_rot}: {_msg}")
+            elif _estado:
+                st.error(f"✗ {_rot}: {_msg}")
+
+        _s1, _s2, _ = st.columns([1, 1, 4])
+        with _s1:
+            if st.button("Atualizar", key="refresh_status"):
+                st.rerun()
+        with _s2:
+            if st.button("Limpar", key="dispensar_status"):
                 st.session_state.ultimo_robo_status = None
                 st.rerun()
 
@@ -1159,19 +1156,28 @@ if st.session_state.get("robo_lancado"):
                     )
                     env = os.environ.copy()
                     env["PYTHONIOENCODING"] = "utf-8"
-                    # CREATE_NEW_CONSOLE = 0x00000010 (janela preta visível, mostra output)
-                    # NAO bloqueia a Streamlit: usa Popen fire-and-forget
+                    # CREATE_NO_WINDOW = 0x08000000 (sem consola visivel). O robo
+                    # espera o SIMN ganhar foco e arranca sozinho; escreve o estado
+                    # em robo_status.json, que a app le e mostra aqui em cima.
                     try:
+                        # limpar o estado antigo para nao mostrar resultado doutro run
+                        _sp = os.path.join(os.path.dirname(CAMINHO_JSON), "robo_status.json")
+                        try:
+                            if os.path.exists(_sp):
+                                os.remove(_sp)
+                        except Exception:
+                            pass
                         subprocess.Popen(
                             [_sys.executable, caminho_robo, "--idx", str(idx),
                              os.path.abspath(CAMINHO_JSON)],
-                            creationflags=0x00000010,
+                            creationflags=0x08000000,
                             env=env,
                         )
                         st.session_state.ultimo_robo_status = {
                             "rotulo": rotulo, "code": None,
                             "stdout": "", "stderr": "",
-                            "msg": f"Robô lançado para {rotulo}. Olha a janela preta que apareceu.",
+                            "msg": f"{rotulo}: vai ao SIMN e clica no campo Nº Contribuinte. "
+                                   f"Arranca sozinho. (Carrega Atualizar para ver o resultado.)",
                         }
                     except Exception as e:
                         st.session_state.ultimo_robo_status = {

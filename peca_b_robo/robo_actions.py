@@ -198,24 +198,42 @@ def janela_em_foco_titulo() -> str:
     return _info_janela_focada()[0]
 
 
-def verificar_foco_simn() -> bool:
-    """Devolve True se a janela em foco pertence ao SIMN.
+_PALAVRAS_SIMN = ("simn", "vendedor", "comprador", "doador", "donatario",
+                  "bem", "outorgante", "herdeiro", "partilhante", "escritura")
 
-    Aceita 3 sinais (qualquer um serve):
-      - Titulo contem palavras-chave do SIMN
-      - Class name comeca por "SunAwt" (Java Swing)
-      - Processo e java.exe / javaw.exe
+
+def _e_janela_simn(titulo: str, classe: str, processo: str) -> bool:
+    """True se (titulo/classe/processo) pertencem a uma janela do SIMN."""
+    tlow = titulo.lower()
+    return (
+        any(p in tlow for p in _PALAVRAS_SIMN)
+        or classe.startswith("SunAwt")
+        or processo.lower() in ("java.exe", "javaw.exe")
+    )
+
+
+def esperar_foco_simn(timeout: float = 30.0) -> bool:
+    """Espera (em silencio) ate o SIMN estar em foco. Devolve True no instante em
+    que ganha foco, False se esgotar o timeout.
+
+    Substitui a contagem fixa de segundos: a funcionaria clica no campo do SIMN e
+    o robo arranca assim que a janela do SIMN fica a frente.
+    """
+    inicio = time.time()
+    while time.time() - inicio < timeout:
+        if _e_janela_simn(*_info_janela_focada()):
+            return True
+        time.sleep(0.15)
+    return False
+
+
+def verificar_foco_simn() -> bool:
+    """Devolve True se a janela em foco pertence ao SIMN (imprime aviso se nao).
+
+    Usado no modo interactivo. O modo da app usa esperar_foco_simn (silencioso).
     """
     titulo, classe, processo = _info_janela_focada()
-    tlow = titulo.lower()
-
-    palavras_titulo = ("simn", "vendedor", "comprador", "doador", "donatario",
-                       "bem", "outorgante", "herdeiro", "partilhante", "escritura")
-    ok_titulo = any(p in tlow for p in palavras_titulo)
-    ok_classe = classe.startswith("SunAwt")
-    ok_processo = processo.lower() in ("java.exe", "javaw.exe")
-
-    if ok_titulo or ok_classe or ok_processo:
+    if _e_janela_simn(titulo, classe, processo):
         return True
 
     print()

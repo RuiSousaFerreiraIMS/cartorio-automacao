@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 
 # Forcar UTF-8 no stdout/stderr para nao rebentar quando corrido sem consola
 # (subprocess com CREATE_NO_WINDOW usa cp1252 por defeito, que nao suporta unicode).
@@ -41,7 +42,11 @@ except ImportError:
     sys.exit(1)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from robo_actions import contagem_decrescente, verificar_foco_simn  # noqa: E402
+from robo_actions import (  # noqa: E402
+    contagem_decrescente,
+    esperar_foco_simn,
+    verificar_foco_simn,
+)
 from robo_forms import preencher_outorgante  # noqa: E402
 
 
@@ -102,42 +107,59 @@ def mostrar_menu(items: list) -> str | None:
         print(f"  Opcao invalida. Numeros de 1 a {len(items)} ou q para sair.")
 
 
-def modo_batch(caminho_json: str, idx: int) -> int:
-    """Preenche o outorgante idx e sai. Chamado pela Streamlit.
+def _escrever_status(estado: str, rotulo: str, msg: str) -> None:
+    """Escreve o estado do robo em partilha/robo_status.json para a app mostrar.
 
-    Return code:
-      0 = sucesso
-      1 = argumentos invalidos / JSON nao existe
-      2 = SIMN nao esta em foco
-      3 = erro durante preenchimento
+    estado: 'a_preencher' | 'ok' | 'erro'.
+    """
+    caminho = os.path.join(os.path.dirname(__file__), "..", "partilha", "robo_status.json")
+    try:
+        os.makedirs(os.path.dirname(caminho), exist_ok=True)
+        with open(caminho, "w", encoding="utf-8") as f:
+            json.dump(
+                {"estado": estado, "rotulo": rotulo, "msg": msg,
+                 "ts": time.strftime("%H:%M:%S")},
+                f, ensure_ascii=False,
+            )
+    except Exception:
+        pass
+
+
+def modo_batch(caminho_json: str, idx: int) -> int:
+    """Preenche o outorgante idx e sai. Chamado pela Streamlit (corre sem consola).
+
+    Sem contagem nem pausa: espera o SIMN ganhar foco e arranca no instante em
+    que a funcionaria clica no campo do SIMN. O estado vai para robo_status.json
+    (a app le e mostra), nao para a consola.
+
+    Return code: 0=sucesso, 1=idx invalido, 2=SIMN nao ganhou foco, 3=erro.
     """
     campos = carregar_json(caminho_json)
     items = listar_outorgantes(campos)
     if idx < 0 or idx >= len(items):
-        print(f"ERRO: idx {idx} fora de gama. Existem {len(items)} outorgantes.")
-        _pausa_final()
+        _escrever_status("erro", f"idx {idx}", f"fora de gama ({len(items)} outorgantes).")
         return 1
     rotulo, _tipo, outorgante = items[idx]
-    print(f"Vou preencher: {rotulo} - {outorgante.get('nome', '?')}")
+    _escrever_status("a_preencher", rotulo, "vai ao SIMN e clica no campo Nº Contribuinte.")
 
-    contagem_decrescente(8, "\nAlt+Tab AGORA para o form do SIMN.")
-
-    if not verificar_foco_simn():
-        _pausa_final()
+    if not esperar_foco_simn(timeout=30.0):
+        _escrever_status(
+            "erro", rotulo,
+            "o SIMN nao ficou a frente a tempo. Clica ▶ Preencher outra vez.",
+        )
         return 2
+    time.sleep(0.2)  # pequena folga apos ganhar foco
 
-    codigo = 0
     try:
         preencher_outorgante(outorgante)
-        print("\nOK: form preenchido.")
+        _escrever_status("ok", rotulo, "preenchido. Confere e clica OK no SIMN.")
+        return 0
     except pyautogui.FailSafeException:
-        print("\nABORTADO: rato ao canto superior esquerdo.")
-        codigo = 3
+        _escrever_status("erro", rotulo, "abortado (rato ao canto do ecra).")
+        return 3
     except Exception as e:
-        print(f"\nERRO: {e}")
-        codigo = 3
-    _pausa_final()
-    return codigo
+        _escrever_status("erro", rotulo, f"erro: {e}")
+        return 3
 
 
 def _pausa_final() -> None:
