@@ -174,6 +174,10 @@ Regras importantes:
   numero ("Largo da Escola, n.o 25"); morada_localidade = o lugar/localidade ("Vale de Maceira");
   morada_concelho = o concelho ("Alcobaca"); morada_freguesia = a freguesia ("Alfeizerao"). Infere
   o concelho a partir da freguesia se preciso. Localidade/Concelho/Freguesia OBRIGATORIOS no SIMN.
+- descricao_predial: o NUMERO com que o predio/fracao esta descrito na Conservatoria. Vem quase
+  sempre POR EXTENSO ("descrito na Conservatoria... com o numero seis mil duzentos e setenta e
+  um" = "6271"). CONVERTE para digitos. Se a escritura disser que o predio e OMISSO/nao descrito,
+  poe "omisso". E OBRIGATORIO no SIMN (campo Nº Registo), esforca-te por o obter.
 - preco_venda: o valor por extenso na escritura (ex "DUZENTOS E OITENTA MIL EUROS" = 280000.0).
 - valor_patrimonial: o VPT da fracao se mencionado.
 - hipoteca_a_cancelar: true se o texto fala em cancelamento de hipoteca existente.

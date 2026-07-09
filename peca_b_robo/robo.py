@@ -50,17 +50,21 @@ from robo_actions import (  # noqa: E402
 from robo_forms import (  # noqa: E402
     preencher_bem,
     preencher_duc,
+    preencher_empresa,
     preencher_outorgante,
 )
 
 
-# Despacho por tipo de item: qual funcao preenche e qual o 1o campo onde a
-# funcionaria deve por o cursor antes de clicar Preencher.
-def _dispatch(tipo: str):
+# Despacho: qual funcao preenche e qual o 1o campo onde a funcionaria deve por o
+# cursor antes de clicar Preencher. Recebe tambem os dados para distinguir a
+# empresa (Outorgante Colectivo) do outorgante singular.
+def _dispatch(tipo: str, dados: dict | None = None):
     if tipo == "bem":
         return preencher_bem, "Concelho (Localização Fiscal)"
     if tipo == "duc":
         return preencher_duc, "Número"
+    if dados and dados.get("e_empresa"):
+        return preencher_empresa, "Nº Contribuinte (NIPC)"
     return preencher_outorgante, "Nº Contribuinte"
 
 
@@ -180,19 +184,7 @@ def modo_batch(caminho_json: str, idx: int) -> int:
         _escrever_status("erro", f"idx {idx}", f"fora de gama ({len(items)} itens).")
         return 1
     rotulo, tipo, dados = items[idx]
-
-    # EMPRESA (Outorgante Colectivo): o form e DIFERENTE do singular e ainda nao
-    # esta calibrado/automatizado. Nao correr o filler singular (encheria o form
-    # errado) - avisar a funcionaria para o fazer a mao no 'Novo Outorgante Colectivo'.
-    if tipo not in ("bem", "duc") and dados.get("e_empresa"):
-        _escrever_status(
-            "empresa", rotulo,
-            f"{dados.get('nome') or 'entidade'} e uma EMPRESA. Abre 'Novo Outorgante "
-            "Colectivo' e preenche a mao (este form ainda nao esta automatizado).",
-        )
-        return 4
-
-    fill_fn, primeiro_campo = _dispatch(tipo)
+    fill_fn, primeiro_campo = _dispatch(tipo, dados)
 
     # Bem de uma CV de UM so bem: injectar o preco da venda (o form do Bem tem
     # 'Preco da venda'). Com varios bens a reparticao nao e obvia -> deixar manual.
@@ -274,13 +266,7 @@ def main() -> None:
             break
 
         rotulo, tipo, dados = items[idx]
-        if tipo not in ("bem", "duc") and dados.get("e_empresa"):
-            print(f"\n  ⚠️  {rotulo} e uma EMPRESA (Outorgante Colectivo). Esse form")
-            print("      ainda nao esta automatizado: abre 'Novo Outorgante Colectivo'")
-            print("      e preenche a mao.")
-            input("Enter para voltar ao menu... ")
-            continue
-        fill_fn, primeiro_campo = _dispatch(tipo)
+        fill_fn, primeiro_campo = _dispatch(tipo, dados)
         if tipo == "bem":
             bens = campos.get("bens", [])
             if len(bens) == 1 and campos.get("preco_venda") is not None:

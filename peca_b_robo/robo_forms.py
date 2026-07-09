@@ -201,6 +201,35 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
 
 
 # -----------------------------------------------------------------------------
+# Form do OUTORGANTE COLECTIVO (empresa)
+# -----------------------------------------------------------------------------
+def preencher_empresa(o: dict[str, Any]) -> str:
+    """Preenche o form 'Dados Empresa' (Outorgante Colectivo).
+
+    Regra do Rui (2026-07-09): ~90% das empresas JA estao na base do SIMN, por
+    isso basta escrever o NIPC no 1o campo e o SIMN autopreenche o resto (Nome,
+    Sede, etc). Para os ~10% que nao estao, a funcionaria completa a mao (o form
+    Colectivo completo ainda nao esta calibrado; se um dia for preciso, mapeia-se
+    com calibrar_form.py como se fez ao Bem).
+
+    Pre-condicao: cursor no 1o campo (NIPC) do form 'Dados Empresa'.
+    """
+    print(f"  A preencher empresa: {o.get('nome', '?')} (NIPC {o.get('nif', '?')})")
+
+    # NIPC (texto) - mesmo mecanismo do outorgante singular reconhecido.
+    escrever(o.get("nif", ""))
+    tab()
+    time.sleep(0.6)  # SIMN consulta a base pelo NIPC
+
+    nome_atual = ler_campo_atual()
+    if nome_atual:
+        print(f"  -> Empresa reconhecida na base: {nome_atual!r}")
+        return "reconhecido"
+    print("  -> Empresa nao esta na base. A funcionaria completa o resto a mao.")
+    return "preenchido"
+
+
+# -----------------------------------------------------------------------------
 # Form do BEM
 # -----------------------------------------------------------------------------
 def preencher_bem(b: dict[str, Any]) -> str:

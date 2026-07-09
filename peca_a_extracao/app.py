@@ -1117,9 +1117,9 @@ if st.session_state.get("robo_lancado"):
       <div style="font-size:13px; color:#075985; line-height:1.7;">
         <b>Para cada item (outorgante, bem ou DUC):</b>
         <ol style="margin:6px 0 0 20px;">
-          <li>No <b>SIMN</b>: abre o form certo (<b>Adicionar</b> Vendedor/Comprador → Novo Singular; <b>Adicionar bem</b> → Novo Bem; <b>Novo DUC</b>)</li>
+          <li>No <b>SIMN</b>: abre o form certo (pessoa → <b>Novo Singular</b>; <b>🏢 Empresa</b> → <b>Novo Outorgante Colectivo</b>; <b>Adicionar bem</b> → Novo Bem; <b>Novo DUC</b>)</li>
           <li>Aqui na app, clica <b>▶ Preencher</b> no item certo</li>
-          <li>Vai ao <b>SIMN</b> e clica no <b>1º campo</b> do form (Outorgante: Nº Contribuinte · Bem: Concelho · DUC: Número). O robô arranca sozinho assim que o SIMN estiver à frente.</li>
+          <li>Vai ao <b>SIMN</b> e clica no <b>1º campo</b> (Pessoa/Empresa: Nº Contribuinte · Bem: Concelho · DUC: Número). O robô arranca sozinho. <i>Nas empresas basta o NIPC: o SIMN preenche o resto.</i></li>
           <li>Revê, clica <b>OK</b> no SIMN, passa ao próximo</li>
         </ol>
       </div>
