@@ -1115,18 +1115,20 @@ if st.session_state.get("robo_lancado"):
         🤖 Preencher SIMN — instruções
       </div>
       <div style="font-size:13px; color:#075985; line-height:1.7;">
-        <b>Para cada outorgante:</b>
+        <b>Para cada item (outorgante, bem ou DUC):</b>
         <ol style="margin:6px 0 0 20px;">
-          <li>No <b>SIMN</b>: <b>Adicionar</b> (Vendedor/Comprador/etc.) → <b>Novo Outorgante Singular</b></li>
-          <li>Aqui na app, clica <b>▶ Preencher</b> no outorgante certo</li>
-          <li>Vai ao <b>SIMN</b> e clica no campo <b>Nº Contribuinte</b>. O robô arranca sozinho assim que o SIMN estiver à frente.</li>
+          <li>No <b>SIMN</b>: abre o form certo (<b>Adicionar</b> Vendedor/Comprador → Novo Singular; <b>Adicionar bem</b> → Novo Bem; <b>Novo DUC</b>)</li>
+          <li>Aqui na app, clica <b>▶ Preencher</b> no item certo</li>
+          <li>Vai ao <b>SIMN</b> e clica no <b>1º campo</b> do form (Outorgante: Nº Contribuinte · Bem: Concelho · DUC: Número). O robô arranca sozinho assim que o SIMN estiver à frente.</li>
           <li>Revê, clica <b>OK</b> no SIMN, passa ao próximo</li>
         </ol>
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Construir a lista de outorgantes/partilhantes
+    # Construir a lista de itens preenchiveis: (rotulo, subtitulo).
+    # ORDEM tem de ser IGUAL a listar_itens() no robo.py, senao o --idx que
+    # enviamos aponta para o item errado: outorgantes -> autor_heranca -> bens -> ducs.
     def _lista_para_botoes(cv_obj):
         items = []
         for tipo, lista_attr in [
@@ -1136,15 +1138,21 @@ if st.session_state.get("robo_lancado"):
         ]:
             lista = getattr(cv_obj, lista_attr, None) or []
             for i, o in enumerate(lista, 1):
-                items.append((f"{tipo} {i}", o))
+                items.append((f"{tipo} {i}", f"{o.nome or '?'} · NIF {o.nif or '?'}"))
         # autor_heranca (habilitacao/partilha)
         autor = getattr(cv_obj, "autor_heranca", None)
         if autor:
-            items.append(("Autor da Herança", autor))
+            items.append(("Autor da Herança", f"{autor.nome or '?'} · NIF {autor.nif or '?'}"))
+        # Bens
+        for i, b in enumerate(getattr(cv_obj, "bens", None) or [], 1):
+            items.append((f"Bem {i}", b.descricao_predial or b.freguesia or "imóvel"))
+        # DUCs
+        for i, d in enumerate(getattr(cv_obj, "ducs", None) or [], 1):
+            items.append((f"DUC {i}", f"nº {d.numero or '?'}"))
         return items
 
-    outorgantes_disponiveis = _lista_para_botoes(obj)
-    if outorgantes_disponiveis:
+    itens_disponiveis = _lista_para_botoes(obj)
+    if itens_disponiveis:
         # Estado: mensagem de lancamento (sessao) + resultado do robo (robo_status.json)
         lancou = st.session_state.get("ultimo_robo_status")
         if lancou and lancou.get("code") == 98:
@@ -1179,12 +1187,10 @@ if st.session_state.get("robo_lancado"):
                 st.rerun()
 
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-        for idx, (rotulo, outorgante) in enumerate(outorgantes_disponiveis):
+        for idx, (rotulo, subtitulo) in enumerate(itens_disponiveis):
             c1, c2 = st.columns([3, 1])
             with c1:
-                st.markdown(
-                    f"**{rotulo}**  ·  {outorgante.nome or '?'}  ·  NIF `{outorgante.nif or '?'}`"
-                )
+                st.markdown(f"**{rotulo}**  ·  {subtitulo}")
             with c2:
                 if st.button(f"▶ Preencher", key=f"preench_btn_{idx}", use_container_width=True):
                     import subprocess

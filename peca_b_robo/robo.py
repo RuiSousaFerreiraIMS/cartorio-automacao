@@ -47,7 +47,21 @@ from robo_actions import (  # noqa: E402
     esperar_foco_simn,
     verificar_foco_simn,
 )
-from robo_forms import preencher_outorgante  # noqa: E402
+from robo_forms import (  # noqa: E402
+    preencher_bem,
+    preencher_duc,
+    preencher_outorgante,
+)
+
+
+# Despacho por tipo de item: qual funcao preenche e qual o 1o campo onde a
+# funcionaria deve por o cursor antes de clicar Preencher.
+def _dispatch(tipo: str):
+    if tipo == "bem":
+        return preencher_bem, "Concelho (Localização Fiscal)"
+    if tipo == "duc":
+        return preencher_duc, "Número"
+    return preencher_outorgante, "Nº Contribuinte"
 
 
 CAMINHO_JSON_DEFAULT = os.path.join(
@@ -64,8 +78,18 @@ def carregar_json(caminho: str) -> dict:
         return json.load(f)
 
 
-def listar_outorgantes(campos: dict) -> list[tuple[str, str, dict]]:
-    """Devolve lista de (rotulo, tipo, dict). Ex: ('Vendedor 1', 'vendedor', {...})."""
+def listar_itens(campos: dict) -> list[tuple[str, str, dict]]:
+    """Devolve a lista de itens preenchiveis: (rotulo, tipo, dict).
+
+    ORDEM CANONICA (tem de ser IGUAL a _lista_para_botoes na app.py, senao o
+    --idx que a app passa aponta para o item errado):
+       1. Outorgantes (vendedores, compradores, doadores, ...)
+       2. autor_heranca (habilitacao / partilha)
+       3. Bens
+       4. DUCs
+    O 'tipo' manda no despacho (_dispatch): outorgante -> preencher_outorgante,
+    'bem' -> preencher_bem, 'duc' -> preencher_duc.
+    """
     items: list[tuple[str, str, dict]] = []
     mapeamento = [
         ("Vendedor", campos.get("vendedores", [])),
@@ -77,12 +101,21 @@ def listar_outorgantes(campos: dict) -> list[tuple[str, str, dict]]:
     ]
     for tipo_singular, lista in mapeamento:
         for i, o in enumerate(lista, 1):
-            rotulo = f"{tipo_singular} {i}"
-            items.append((rotulo, tipo_singular.lower(), o))
+            items.append((f"{tipo_singular} {i}", tipo_singular.lower(), o))
     # autor_heranca (habilitacao / partilha)
     if campos.get("autor_heranca"):
         items.append(("Autor da Heranca (falecido)", "autor_heranca", campos["autor_heranca"]))
+    # Bens
+    for i, b in enumerate(campos.get("bens", []), 1):
+        items.append((f"Bem {i}", "bem", b))
+    # DUCs
+    for i, d in enumerate(campos.get("ducs", []), 1):
+        items.append((f"DUC {i}", "duc", d))
     return items
+
+
+# Alias retrocompativel (o nome antigo era so-outorgantes).
+listar_outorgantes = listar_itens
 
 
 def mostrar_menu(items: list) -> str | None:
@@ -91,10 +124,16 @@ def mostrar_menu(items: list) -> str | None:
     print("=" * 60)
     print("Escolhe quem preencher:")
     print("=" * 60)
-    for idx, (rotulo, _tipo, o) in enumerate(items, 1):
-        nome = o.get("nome") or "(sem nome)"
-        nif = o.get("nif") or "?"
-        print(f"  [{idx}] {rotulo:20} {nome} (NIF {nif})")
+    for idx, (rotulo, tipo, o) in enumerate(items, 1):
+        if tipo == "bem":
+            desc = o.get("descricao_predial") or o.get("freguesia") or "(bem)"
+            print(f"  [{idx}] {rotulo:20} {desc}")
+        elif tipo == "duc":
+            print(f"  [{idx}] {rotulo:20} nº {o.get('numero') or '?'}")
+        else:
+            nome = o.get("nome") or "(sem nome)"
+            nif = o.get("nif") or "?"
+            print(f"  [{idx}] {rotulo:20} {nome} (NIF {nif})")
     print(f"  [q] Sair")
     print()
 
@@ -135,12 +174,21 @@ def modo_batch(caminho_json: str, idx: int) -> int:
     Return code: 0=sucesso, 1=idx invalido, 2=SIMN nao ganhou foco, 3=erro.
     """
     campos = carregar_json(caminho_json)
-    items = listar_outorgantes(campos)
+    items = listar_itens(campos)
     if idx < 0 or idx >= len(items):
-        _escrever_status("erro", f"idx {idx}", f"fora de gama ({len(items)} outorgantes).")
+        _escrever_status("erro", f"idx {idx}", f"fora de gama ({len(items)} itens).")
         return 1
-    rotulo, _tipo, outorgante = items[idx]
-    _escrever_status("a_preencher", rotulo, "vai ao SIMN e clica no campo Nº Contribuinte.")
+    rotulo, tipo, dados = items[idx]
+    fill_fn, primeiro_campo = _dispatch(tipo)
+
+    # Bem de uma CV de UM so bem: injectar o preco da venda (o form do Bem tem
+    # 'Preco da venda'). Com varios bens a reparticao nao e obvia -> deixar manual.
+    if tipo == "bem":
+        bens = campos.get("bens", [])
+        if len(bens) == 1 and campos.get("preco_venda") is not None:
+            dados = {**dados, "preco_venda": campos["preco_venda"]}
+
+    _escrever_status("a_preencher", rotulo, f"vai ao SIMN e clica no campo {primeiro_campo}.")
 
     if not esperar_foco_simn(timeout=30.0):
         _escrever_status(
@@ -151,7 +199,7 @@ def modo_batch(caminho_json: str, idx: int) -> int:
     time.sleep(0.2)  # pequena folga apos ganhar foco
 
     try:
-        preencher_outorgante(outorgante)
+        fill_fn(dados)
         _escrever_status("ok", rotulo, "preenchido. Confere e clica OK no SIMN.")
         return 0
     except pyautogui.FailSafeException:
@@ -200,23 +248,29 @@ def main() -> None:
     tipo = campos.get("mnemonica", "?")
     print(f"Tipo de acto: {tipo}")
 
-    items = listar_outorgantes(campos)
+    items = listar_itens(campos)
     if not items:
-        print("ERRO: nenhum outorgante encontrado no JSON.")
+        print("ERRO: nenhum item preenchivel encontrado no JSON.")
         sys.exit(1)
 
-    # Loop principal - permite preencher varios outorgantes sem sair
+    # Loop principal - permite preencher varios itens sem sair
     while True:
         idx = mostrar_menu(items)
         if idx is None:
             print("A sair.")
             break
 
-        rotulo, _tipo, outorgante = items[idx]
-        print(f"\nVou preencher: {rotulo} - {outorgante.get('nome', '?')}")
+        rotulo, tipo, dados = items[idx]
+        fill_fn, primeiro_campo = _dispatch(tipo)
+        if tipo == "bem":
+            bens = campos.get("bens", [])
+            if len(bens) == 1 and campos.get("preco_venda") is not None:
+                dados = {**dados, "preco_venda": campos["preco_venda"]}
+
+        print(f"\nVou preencher: {rotulo} - {dados.get('nome') or dados.get('numero') or '?'}")
         print("Confirma:")
         print("  1. SIMN aberto com o form ja no ecra")
-        print("  2. Cursor no campo Nº Contribuinte")
+        print(f"  2. Cursor no campo {primeiro_campo}")
         print("  3. Alt+Tab para o SIMN quando comecar a contagem")
 
         contagem_decrescente(8, "\nA arrancar em 8 segundos. Alt+Tab AGORA para o SIMN.")
@@ -227,7 +281,7 @@ def main() -> None:
             continue
 
         try:
-            preencher_outorgante(outorgante)
+            fill_fn(dados)
             print("\n✓ Terminado. Confere no SIMN e clica OK.\n")
         except pyautogui.FailSafeException:
             print("\nABORTADO (rato ao canto superior esquerdo).\n")
