@@ -111,7 +111,16 @@ class Outorgante(_Base):
         None, description="Freguesia de naturalidade."
     )
     nacionalidade: Optional[str] = None
-    morada: Optional[str] = None
+    morada: Optional[str] = None  # rua + numero (a parte "Morada" no SIMN)
+    morada_localidade: Optional[str] = Field(
+        None, description="Localidade / lugar da morada (o SIMN pede em separado)."
+    )
+    morada_concelho: Optional[str] = Field(
+        None, description="Concelho da morada (dropdown no SIMN)."
+    )
+    morada_freguesia: Optional[str] = Field(
+        None, description="Freguesia da morada (dropdown no SIMN)."
+    )
     doc_identificacao: Optional[str] = Field(
         None, description="Nº de cartao de cidadao ou titulo de residencia."
     )

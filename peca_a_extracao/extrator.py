@@ -117,7 +117,8 @@ Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
                   "estado_civil": "casado", "regime_bens": "comunhao_de_adquiridos",
                   "conjuge_de_nif": "...", "naturalidade_concelho": "...",
                   "naturalidade_freguesia": "...", "nacionalidade": "...",
-                  "morada": "...", "doc_identificacao": "...", "quota_parte": "1/1"}],
+                  "morada": "...", "morada_localidade": "...", "morada_concelho": "...",
+                  "morada_freguesia": "...", "doc_identificacao": "...", "quota_parte": "1/1"}],
   "compradores": [ ... igual aos vendedores ... ],
   "bens": [{"designacao_fracao": "P", "descricao_predial": "...",
             "certidao_predial": "...", "artigo_matricial": "...",
@@ -151,6 +152,11 @@ Regras importantes:
   concelho de Y" (ou so "natural de X"). Preenche os DOIS. Se so vier a freguesia (ex "natural
   de Turquel"), INFERE o concelho a que pertence (Turquel -> Alcobaca). Se so vier o concelho,
   poe so o concelho. NUNCA metas a freguesia no campo do concelho. E OBRIGATORIO no SIMN.
+- morada / morada_localidade / morada_concelho / morada_freguesia: a morada vem toda junta
+  (ex "Largo da Escola, n.o 25, Vale de Maceira, Alfeizerao, Alcobaca"). SEPARA: morada = rua +
+  numero ("Largo da Escola, n.o 25"); morada_localidade = o lugar/localidade ("Vale de Maceira");
+  morada_concelho = o concelho ("Alcobaca"); morada_freguesia = a freguesia ("Alfeizerao"). Infere
+  o concelho a partir da freguesia se preciso. Localidade/Concelho/Freguesia OBRIGATORIOS no SIMN.
 - preco_venda: o valor por extenso na escritura (ex "DUZENTOS E OITENTA MIL EUROS" = 280000.0).
 - valor_patrimonial: o VPT da fracao se mencionado.
 - hipoteca_a_cancelar: true se o texto fala em cancelamento de hipoteca existente.

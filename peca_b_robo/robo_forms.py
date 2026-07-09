@@ -110,18 +110,31 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 8. STOP FANTASMA (controlo invisivel entre a Naturalidade e a Morada)
     tab()      # -> Morada
 
-    # 9. Morada Morada (texto livre - seguro escrever)
+    # 9. Morada (rua + numero) - texto
     escrever(o.get("morada", ""))
-    tab()
+    tab()      # -> Localidade
 
-    # 10-13. Localidade / CP1 / CP2 / LocCP (texto, saltar - endereco vai todo na Morada)
-    tab(4)
+    # 10. Localidade - texto (OBRIGATORIO)
+    escrever(o.get("morada_localidade", ""))
+    tab()      # -> Codigo Postal 1
 
-    # 14-16. Morada Concelho / Freguesia / Pais (dropdowns, saltar).
-    # tab(4) e nao 3: no teste o robo comecava as setas do Estado Civil ainda no
-    # dropdown Morada Pais (stop 16) e navegava-o por engano (Republica
-    # Dominicana). Falta um avanco ate ao Estado Civil (stop 17).
-    tab(4)
+    # 11-13. Codigo Postal (CP1 / CP2 / localidade do CP) - saltar
+    tab(3)     # -> Morada Concelho
+
+    # 14. Morada Concelho (dropdown de ESCRITA: escrever, Tab confirma, Tab avanca)
+    if o.get("morada_concelho"):
+        escrever_dropdown(o["morada_concelho"])
+        tab()  # confirma
+    tab()      # avanca -> Morada Freguesia
+    # 15. Morada Freguesia (dropdown de ESCRITA)
+    if o.get("morada_freguesia"):
+        escrever_dropdown(o["morada_freguesia"])
+        tab()  # confirma
+    tab()      # avanca -> Morada Pais
+    # 16. Morada Pais (deixar Portugal): so avancar
+    tab()      # -> stop fantasma
+    # 17. STOP FANTASMA (entre Morada Pais e Estado Civil; era o que exigia o Tab extra)
+    tab()      # -> Estado Civil
 
     # 17. Estado Civil (dropdown de SELECAO / cinzento). Metodo do notario: Down
     # navega ate a opcao -> Tab confirma -> Tab avanca. Ordem no SIMN:

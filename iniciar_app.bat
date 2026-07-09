@@ -10,8 +10,14 @@ cd /d "%~dp0"
 REM Verificar venv
 if not exist ".venv\Scripts\activate.bat" goto :sem_venv
 
-REM Verificar chave da API - pelo menos uma tem de existir (Groq, Google ou Anthropic)
-if "%GROQ_API_KEY%"=="" if "%GOOGLE_API_KEY%"=="" if "%ANTHROPIC_API_KEY%"=="" goto :sem_chave
+REM Verificar chave da API - pelo menos uma tem de existir (Groq, Google ou Anthropic).
+REM 'if defined' NAO expande o valor, logo e imune a newlines/caracteres estranhos
+REM na chave (que com o "%VAR%"=="" partiam a linha e davam "syntax incorrect").
+if defined GROQ_API_KEY goto :tem_chave
+if defined GOOGLE_API_KEY goto :tem_chave
+if defined ANTHROPIC_API_KEY goto :tem_chave
+goto :sem_chave
+:tem_chave
 
 REM Ambiente pronto, arrancar
 call .venv\Scripts\activate.bat

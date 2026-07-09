@@ -610,7 +610,17 @@ def editar_outorgante(prefixo, indice, o):
         st.text_input("Nacionalidade", o.nacionalidade or "", key=k("nac"))
     )
 
-    o.morada = _vazio_para_none(st.text_input("Morada", o.morada or "", key=k("mor")))
+    o.morada = _vazio_para_none(st.text_input("Morada (rua)", o.morada or "", key=k("mor")))
+    c1, c2, c3 = st.columns(3)
+    o.morada_localidade = _vazio_para_none(
+        c1.text_input("Morada — Localidade", o.morada_localidade or "", key=k("morl"))
+    )
+    o.morada_concelho = _vazio_para_none(
+        c2.text_input("Morada — Concelho", o.morada_concelho or "", key=k("morc"))
+    )
+    o.morada_freguesia = _vazio_para_none(
+        c3.text_input("Morada — Freguesia", o.morada_freguesia or "", key=k("morf"))
+    )
     o.doc_identificacao = _vazio_para_none(
         st.text_input("Documento (CC / Título residência)",
                       o.doc_identificacao or "", key=k("doc"))
