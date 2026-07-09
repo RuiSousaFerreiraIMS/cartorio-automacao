@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import subprocess
 import time
+import unicodedata
 
 import pyautogui
 
@@ -56,6 +57,28 @@ def dropdown_por_letra(primeira_letra: str) -> None:
         return
     pyautogui.press(primeira_letra[0].lower())
     time.sleep(0.15)
+
+
+def _sem_acentos(texto: str) -> str:
+    """Remove acentos (ç->c, á->a...). Necessario porque pyautogui.write escreve
+    teclas fisicas e nao consegue os acentos; o key-select do combo compara pelo
+    prefixo, por isso um prefixo ASCII chega para acertar (ex 'alcoba' -> Alcobaca)."""
+    return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
+
+
+def selecionar_dropdown(valor: str | None) -> None:
+    """Seleciona um valor num dropdown Java Swing por navegacao de teclado.
+
+    Escreve as letras do valor (sem acentos, minusculas): o combo salta para a
+    opcao que comeca por esse prefixo. NAO usa paste (Ctrl+V nao seleciona num
+    combo). Se o valor estiver vazio, nao faz nada (deixa o default do SIMN).
+    """
+    if not valor:
+        return
+    v = _sem_acentos(str(valor)).strip().lower()
+    if v:
+        pyautogui.write(v, interval=0.06)
+        time.sleep(0.25)
 
 
 # -----------------------------------------------------------------------------

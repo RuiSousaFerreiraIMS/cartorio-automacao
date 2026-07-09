@@ -20,6 +20,7 @@ from robo_actions import (
     dropdown_por_letra,
     escrever,
     ler_campo_atual,
+    selecionar_dropdown,
     tab,
 )
 
@@ -64,15 +65,14 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     e ele. Alem disso os campos so ativam ao CONFIRMAR o Estado Civil. Por isso
     o robo para no Estado Civil e a funcionaria completa Regime + NIF Conjuge.
 
-    REGRA DE OURO (aprendida no video 150041): NUNCA escrever com escrever()
-    num DROPDOWN. Despejar uma string longa num combo Java Swing dispara o
-    autocomplete (escolhe item errado) E abre o popup, que engole os Tabs
-    seguintes e desalinha TODO o form a jusante. Foi o que aconteceu:
-    "Aljubarrota (Prazeres)" foi para Naturalidade Concelho, o popup abriu, e a
-    Morada acabou despejada no dropdown Morada Concelho. Por isso so escrevemos
-    em campos de TEXTO; os dropdowns de Concelho/Freguesia/Pais ficam para a
-    funcionaria. Os unicos dropdowns que tocamos (Estado Civil / Regime) sao de
-    letra unica e ficam no fim, onde nao ha nada a seguir para desalinhar.
+    REGRA DE OURO (video 150041): num DROPDOWN nunca usar escrever() (que faz
+    Ctrl+V / paste) - o paste nao seleciona no combo, e uma string errada abre o
+    popup e desalinha tudo. Para dropdowns usa-se selecionar_dropdown() (escreve
+    as letras do valor, sem acentos, para o combo saltar por prefixo) ou
+    dropdown_por_letra() nos de letra unica (Estado Civil / Regime). O erro antigo
+    foi escrever a FREGUESIA no campo do CONCELHO; agora a extracao separa os dois
+    (naturalidade_concelho / naturalidade_freguesia), por isso o valor certo bate
+    no item certo. escrever() so nos campos de TEXTO (NIF, Nome, Morada, NIF Conj).
     """
     print(f"  A preencher outorgante: {o.get('nome', '?')} (NIF {o.get('nif', '?')})")
 
@@ -94,13 +94,16 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 2-4. Checkboxes (Estatuto Emigrante / Contab / IVA) - saltar
     tab(3)
 
-    # 5-8. Naturalidade Concelho / Freguesia / Pais (3 dropdowns) + 1 STOP
-    # FANTASMA. NAO escrever nos dropdowns: abriria o popup e desalinharia tudo
-    # (bug do video 150041). A funcionaria preenche a naturalidade a mao.
-    # Sao 4 Tabs, nao 3: o calibrador mostrou Nome=stop1 e Morada=stop9, logo ha
-    # um stop invisivel a mais entre a Naturalidade e a Morada (stop 8).
-    print("  -> Naturalidade deixada em branco (dropdowns; funcionaria completa).")
-    tab(4)
+    # 5. Naturalidade Concelho (dropdown - key-select pelo texto do concelho)
+    selecionar_dropdown(o.get("naturalidade_concelho"))
+    tab()
+    # 6. Naturalidade Freguesia (dropdown - pode filtrar pelo concelho escolhido)
+    selecionar_dropdown(o.get("naturalidade_freguesia"))
+    tab()
+    # 7. Naturalidade Pais (deixar Portugal por defeito)
+    tab()
+    # 8. STOP FANTASMA (controlo invisivel entre a Naturalidade e a Morada)
+    tab()
 
     # 9. Morada Morada (texto livre - seguro escrever)
     escrever(o.get("morada", ""))
@@ -112,33 +115,35 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 14-16. Morada Concelho / Freguesia / Pais (dropdowns, saltar - funcionaria)
     tab(3)
 
-    # 17. Estado Civil (dropdown de letra unica - so 1 opcao por letra, seguro)
+    # 17. Estado Civil (dropdown de letra unica). Escolher CASADO ativa os campos
+    # Regime / NIF Conjuge (cinzentos ate la); damos uma folga antes de avancar
+    # para eles ativarem, senao o Tab salta-os.
     ec_letra = {
         "solteiro": "s", "casado": "c", "divorciado": "d",
         "viuvo": "v", "uniao_de_facto": "u",
     }.get(str(o.get("estado_civil", "")).lower(), "")
     if ec_letra:
         dropdown_por_letra(ec_letra)
-        tab()  # CONFIRMA o Estado Civil: o SIMN so mostra "Casado" quando o campo
-               # perde o foco. Sem este Tab, o campo fica vazio. O Tab tambem ativa
-               # o Regime/Conjuge, que a funcionaria completa a mao.
+        time.sleep(0.4)  # deixar o SIMN ativar Regime / NIF Conjuge
+    tab()  # confirma Estado Civil e avanca -> Regime (stop 18)
 
-    # PARAMOS AQUI de proposito. Regime, NIF Conjuge e Nome Conj. ficam para a
-    # funcionaria. Porque:
-    #  (1) Estes campos so ficam ATIVOS quando o Estado Civil e CONFIRMADO
-    #      (perde o foco), nao ao carregar na letra. O robo nao consegue
-    #      confirmar sem arriscar accionar um botao (Enter -> OK/Cancelar), e um
-    #      Tab imediato salta-os enquanto ainda estao cinzentos.
-    #  (2) O calibrador (com Casado pre-definido) mostrou que, mesmo ativos, nao
-    #      estao onde o codigo assumia: Regime=stop18, mas NIF Conjuge=stop22 e
-    #      Nome Conj=stop23 (ha 3 stops fantasma - provaveis botoes - entre o
-    #      Regime e o NIF Conjuge). Automatizar isto com fiabilidade exige
-    #      tentativa-e-erro no cartorio; nao compensa por 2 campos.
-    # A funcionaria ve o Regime e o NIF do Conjuge na Streamlit e mete-os a mao.
+    # Regime + NIF Conjuge so fazem sentido quando casado (senao ficam cinzentos).
+    # Mapa do calibrador: Regime=stop18, NIF Conjuge=stop22 (3 stops fantasma pelo meio).
     if o.get("estado_civil") == "casado":
-        print("  -> CASADO: escolhe o Regime e escreve o NIF do Conjuge a mao")
-        print("     (estao na Streamlit). O SIMN so ativa esses campos depois de")
-        print("     confirmares o Estado Civil - o robo nao os toca.")
+        # 18. Regime de Bens
+        rb_letra = {
+            "comunhao_de_adquiridos": "c",
+            "comunhao_geral": "c",  # ambos comecam por 'c'; 'c' pega no 1o (adquiridos)
+            "separacao_de_bens": "s",
+        }.get(str(o.get("regime_bens", "")).lower(), "")
+        if rb_letra:
+            dropdown_por_letra(rb_letra)
+        tab()          # -> stop 19
+        tab(3)         # 19-21 stops fantasma -> stop 22 (NIF Conjuge)
+        # 22. NIF Conjuge (texto)
+        if o.get("conjuge_de_nif"):
+            escrever(o["conjuge_de_nif"])
+        # 23. Nome Conj.: deixar vazio, o SIMN puxa da base pelo NIF
 
     return "preenchido"
 
