@@ -1,16 +1,22 @@
 ' ============================================================
 '  Cartorio - Automacao de Escrituras
-'  Launcher silencioso (sem consola). Duplo-clique para arrancar.
-'  Se algo correr mal (nao abre browser), abrir iniciar_app.bat
-'  em vez deste para ver o erro na consola.
+'  Launcher ELEVADO (como Administrador) e sem consola.
+'
+'  PORQUE ELEVADO: o SIMN corre como Administrador. O Windows (UIPI) impede um
+'  programa normal de enviar teclas/rato a uma janela elevada, por isso o robo
+'  nao conseguia preencher o SIMN quando a app era aberta pelo atalho normal.
+'  Correr a app elevada (mesmo nivel do SIMN) resolve.
+'
+'  Ao abrir aparece UMA vez a confirmacao do Windows (UAC): carregar "Sim".
+'  Se algo correr mal, abrir iniciar_app.bat (botao direito > Executar como
+'  administrador) para ver o erro na consola.
 ' ============================================================
 
-Set WshShell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
-
-' Pasta onde este VBS esta
 strPath = fso.GetParentFolderName(WScript.ScriptFullName)
-WshShell.CurrentDirectory = strPath
+strBat = strPath & "\iniciar_app.bat"
 
-' Correr o .bat com janela escondida (0) e nao esperar (False)
-WshShell.Run """" & strPath & "\iniciar_app.bat""", 0, False
+' ShellExecute(ficheiro, argumentos, pasta, verbo, janela)
+'   verbo "runas" = pedir elevacao (UAC)
+'   0 = janela escondida (sem consola visivel)
+CreateObject("Shell.Application").ShellExecute strBat, "", strPath, "runas", 0
