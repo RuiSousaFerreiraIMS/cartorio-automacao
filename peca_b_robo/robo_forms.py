@@ -116,6 +116,17 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     """
     print(f"  A preencher outorgante: {o.get('nome', '?')} (NIF {o.get('nif', '?')})")
 
+    # ESTRANGEIRO (Rui, 2026-07-10): quando o Pais e' estrangeiro, o SIMN desativa
+    # os campos Concelho e Freguesia (naturalidade E morada) - deixam de ser
+    # paragens de Tab. O robo tem entao 2 Tabs A MENOS em cada bloco; se os contar
+    # como num portugues, aterra cedo demais e as setas do Estado Civil caem no
+    # dropdown do Pais (ficava "Quenia"). Deteta-se pela `nacionalidade` estar
+    # preenchida (regra do notario: nacionalidade so se poe a estrangeiros).
+    estrangeiro = bool(o.get("nacionalidade"))
+    if estrangeiro:
+        print(f"  -> Estrangeiro (nacionalidade={o.get('nacionalidade')!r}): "
+              "salta Concelho/Freguesia (naturalidade e morada).")
+
     # 0. NIF (texto)
     escrever(o.get("nif", ""))
     tab()
@@ -148,21 +159,28 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 2-4 (ou 4-6 no autor da heranca). Checkboxes - saltar
     tab(3)
 
-    # 5. Naturalidade Concelho (dropdown de ESCRITA). Metodo do notario:
-    # escrever -> Tab confirma (fecha o popup, e absorvido) -> Tab avanca.
-    if o.get("naturalidade_concelho"):
-        escrever_dropdown(o["naturalidade_concelho"])
-        tab()  # confirma
-    tab()      # avanca -> Freguesia
-    # 6. Naturalidade Freguesia (dropdown de ESCRITA)
-    if o.get("naturalidade_freguesia"):
-        escrever_dropdown(o["naturalidade_freguesia"])
-        tab()  # confirma
-    tab()      # avanca -> Pais
-    # 7. Naturalidade Pais (deixar Portugal): so avancar
-    tab()      # -> stop fantasma
-    # 8. STOP FANTASMA (controlo invisivel entre a Naturalidade e a Morada)
-    tab()      # -> Morada
+    if estrangeiro:
+        # Concelho e Freguesia desativados: nao sao paragens. So o Pais existe
+        # (o SIMN po-lo estrangeiro pelo NIF; a funcionaria confirma). 2 Tabs a
+        # menos que num portugues: Pais -> stop fantasma -> Morada.
+        tab()      # Naturalidade Pais -> stop fantasma
+        tab()      # stop fantasma -> Morada
+    else:
+        # 5. Naturalidade Concelho (dropdown de ESCRITA). Metodo do notario:
+        # escrever -> Tab confirma (fecha o popup, e absorvido) -> Tab avanca.
+        if o.get("naturalidade_concelho"):
+            escrever_dropdown(o["naturalidade_concelho"])
+            tab()  # confirma
+        tab()      # avanca -> Freguesia
+        # 6. Naturalidade Freguesia (dropdown de ESCRITA)
+        if o.get("naturalidade_freguesia"):
+            escrever_dropdown(o["naturalidade_freguesia"])
+            tab()  # confirma
+        tab()      # avanca -> Pais
+        # 7. Naturalidade Pais (deixar Portugal): so avancar
+        tab()      # -> stop fantasma
+        # 8. STOP FANTASMA (controlo invisivel entre a Naturalidade e a Morada)
+        tab()      # -> Morada
 
     # 9. Morada (rua + numero) - texto. Se reconhecido, o SIMN ja o encheu: saltar.
     if not reconhecido:
@@ -177,25 +195,31 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 11-13. Codigo Postal (CP1 / CP2 / localidade do CP) - saltar
     tab(3)     # -> Morada Concelho
 
-    # 14. Morada Concelho (dropdown de ESCRITA: escrever, Tab confirma, Tab avanca)
-    if o.get("morada_concelho"):
-        escrever_dropdown(o["morada_concelho"])
-        tab()  # confirma
-    tab()      # avanca -> Morada Freguesia
-    # 15. Morada Freguesia (dropdown de ESCRITA)
-    if o.get("morada_freguesia"):
-        escrever_dropdown(o["morada_freguesia"])
-        tab()  # confirma
-    tab()      # avanca -> Morada Pais
-    # O form "Autor da heranca" tem 1 stop A MAIS aqui (teste 2026-07-10, Rui): sem
-    # este Tab, o robo chegava ao Estado Civil um campo cedo demais e as setas do
-    # Estado Civil caiam no dropdown do Pais (ficava "Quenia"). So neste form.
-    if o.get("_autor_heranca"):
-        tab()
-    # 16. Morada Pais (deixar Portugal): so avancar
-    tab()      # -> stop fantasma
-    # 17. STOP FANTASMA (entre Morada Pais e Estado Civil; era o que exigia o Tab extra)
-    tab()      # -> Estado Civil
+    if estrangeiro:
+        # Igual a naturalidade: Concelho e Freguesia da morada desativados, nao
+        # sao paragens. 2 Tabs a menos: Morada Pais -> stop fantasma -> Estado Civil.
+        tab()      # Morada Pais -> stop fantasma
+        tab()      # stop fantasma -> Estado Civil
+    else:
+        # 14. Morada Concelho (dropdown de ESCRITA: escrever, Tab confirma, Tab avanca)
+        if o.get("morada_concelho"):
+            escrever_dropdown(o["morada_concelho"])
+            tab()  # confirma
+        tab()      # avanca -> Morada Freguesia
+        # 15. Morada Freguesia (dropdown de ESCRITA)
+        if o.get("morada_freguesia"):
+            escrever_dropdown(o["morada_freguesia"])
+            tab()  # confirma
+        tab()      # avanca -> Morada Pais
+        # O form "Autor da heranca" tem 1 stop A MAIS aqui (teste 2026-07-10, Rui): sem
+        # este Tab, o robo chegava ao Estado Civil um campo cedo demais e as setas do
+        # Estado Civil caiam no dropdown do Pais (ficava "Quenia"). So neste form.
+        if o.get("_autor_heranca"):
+            tab()
+        # 16. Morada Pais (deixar Portugal): so avancar
+        tab()      # -> stop fantasma
+        # 17. STOP FANTASMA (entre Morada Pais e Estado Civil; era o que exigia o Tab extra)
+        tab()      # -> Estado Civil
 
     # 17. Estado Civil (dropdown de SELECAO / cinzento). Metodo do notario: Down
     # navega ate a opcao -> Tab confirma -> Tab avanca. Ordem no SIMN:
