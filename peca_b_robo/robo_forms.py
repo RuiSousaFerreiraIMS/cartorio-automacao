@@ -162,14 +162,15 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
 
     # 5. Naturalidade Concelho (dropdown de ESCRITA). Metodo do notario:
     # escrever -> Tab confirma (fecha o popup, e absorvido) -> Tab avanca.
-    # Estrangeiro NAO tem concelho portugues: fica VAZIO, mas o campo continua a
-    # ser paragem de Tab (os Tabs sao os MESMOS que num portugues).
-    if o.get("naturalidade_concelho"):
+    # ESTRANGEIRO: NUNCA escrever concelho, mesmo que a extracao o tenha posto (ex
+    # parseou "Montana" como concelho). So passar por lá com o Tab (o campo continua
+    # a ser paragem; os Tabs sao os MESMOS que num portugues, so nao se escreve).
+    if not estrangeiro and o.get("naturalidade_concelho"):
         escrever_dropdown(o["naturalidade_concelho"])
         tab()  # confirma
     tab()      # avanca -> Freguesia
-    # 6. Naturalidade Freguesia (dropdown de ESCRITA). Idem: vazia no estrangeiro.
-    if o.get("naturalidade_freguesia"):
+    # 6. Naturalidade Freguesia (dropdown de ESCRITA). Idem: NUNCA no estrangeiro.
+    if not estrangeiro and o.get("naturalidade_freguesia"):
         escrever_dropdown(o["naturalidade_freguesia"])
         tab()  # confirma
     tab()      # avanca -> Pais
@@ -197,13 +198,14 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     tab(3)     # -> Morada Concelho
 
     # 14. Morada Concelho (dropdown de ESCRITA: escrever, Tab confirma, Tab avanca).
-    # Estrangeiro fica VAZIO (mora fora), mas o campo continua a ser paragem de Tab.
-    if o.get("morada_concelho"):
+    # ESTRANGEIRO: NUNCA escrever, mesmo que a extracao tenha posto algo (ex
+    # "Montana"). So passar por lá com o Tab (mora fora, nao ha concelho portugues).
+    if not estrangeiro and o.get("morada_concelho"):
         escrever_dropdown(o["morada_concelho"])
         tab()  # confirma
     tab()      # avanca -> Morada Freguesia
-    # 15. Morada Freguesia (dropdown de ESCRITA). Idem: vazia no estrangeiro.
-    if o.get("morada_freguesia"):
+    # 15. Morada Freguesia (dropdown de ESCRITA). Idem: NUNCA no estrangeiro.
+    if not estrangeiro and o.get("morada_freguesia"):
         escrever_dropdown(o["morada_freguesia"])
         tab()  # confirma
     tab()      # avanca -> Morada Pais
