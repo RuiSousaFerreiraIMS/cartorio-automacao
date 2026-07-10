@@ -90,8 +90,13 @@ def escrever_dropdown(valor: str | None) -> None:
         return
     v = _sem_acentos(str(valor)).strip().lower()
     if v:
+        # Deixar o campo ficar PRONTO antes de escrever. Sem isto, quando o dropdown
+        # vem logo a seguir a Tabs rapidos (ex: Morada Concelho a seguir aos 3 Tabs
+        # do Codigo Postal), as primeiras letras PERDEM-SE: o campo fica vazio, nao
+        # abre popup e o "Tab de confirmacao" passa a mover o foco -> derrapa tudo.
+        time.sleep(0.35)
         pyautogui.write(v, interval=0.06)
-        time.sleep(0.25)
+        time.sleep(0.35)  # deixar o popup do autocomplete abrir e estabilizar
 
 
 def radio_selecionar(indice: int) -> None:
