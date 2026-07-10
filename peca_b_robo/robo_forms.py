@@ -181,6 +181,11 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
         escrever_dropdown(o["morada_freguesia"])
         tab()  # confirma
     tab()      # avanca -> Morada Pais
+    # O form "Autor da heranca" tem 1 stop A MAIS aqui (teste 2026-07-10, Rui): sem
+    # este Tab, o robo chegava ao Estado Civil um campo cedo demais e as setas do
+    # Estado Civil caiam no dropdown do Pais (ficava "Quenia"). So neste form.
+    if o.get("_autor_heranca"):
+        tab()
     # 16. Morada Pais (deixar Portugal): so avancar
     tab()      # -> stop fantasma
     # 17. STOP FANTASMA (entre Morada Pais e Estado Civil; era o que exigia o Tab extra)
