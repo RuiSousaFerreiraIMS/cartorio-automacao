@@ -142,21 +142,14 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 2-4 (ou 4-6 no autor da heranca). Checkboxes - saltar
     tab(3)
 
-    # No form "Autor da heranca" saltamos os dropdowns de ESCRITA (Naturalidade e
-    # Morada Concelho/Freguesia): o "Tab de confirmacao absorvido pelo popup" e'
-    # fragil (num match unico como "Alcobaca" o popup fecha sozinho e o Tab passa a
-    # mexer o foco -> derrapa tudo a jusante). Assim passamos Tabs LIMPOS (1 por
-    # stop, deterministas) e a funcionaria enche esses dropdowns. Resto tudo certo.
-    _salta_dropdowns = bool(o.get("_autor_heranca"))
-
     # 5. Naturalidade Concelho (dropdown de ESCRITA). Metodo do notario:
     # escrever -> Tab confirma (fecha o popup, e absorvido) -> Tab avanca.
-    if o.get("naturalidade_concelho") and not _salta_dropdowns:
+    if o.get("naturalidade_concelho"):
         escrever_dropdown(o["naturalidade_concelho"])
         tab()  # confirma
     tab()      # avanca -> Freguesia
     # 6. Naturalidade Freguesia (dropdown de ESCRITA)
-    if o.get("naturalidade_freguesia") and not _salta_dropdowns:
+    if o.get("naturalidade_freguesia"):
         escrever_dropdown(o["naturalidade_freguesia"])
         tab()  # confirma
     tab()      # avanca -> Pais
@@ -179,12 +172,12 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     tab(3)     # -> Morada Concelho
 
     # 14. Morada Concelho (dropdown de ESCRITA: escrever, Tab confirma, Tab avanca)
-    if o.get("morada_concelho") and not _salta_dropdowns:
+    if o.get("morada_concelho"):
         escrever_dropdown(o["morada_concelho"])
         tab()  # confirma
     tab()      # avanca -> Morada Freguesia
     # 15. Morada Freguesia (dropdown de ESCRITA)
-    if o.get("morada_freguesia") and not _salta_dropdowns:
+    if o.get("morada_freguesia"):
         escrever_dropdown(o["morada_freguesia"])
         tab()  # confirma
     tab()      # avanca -> Morada Pais
