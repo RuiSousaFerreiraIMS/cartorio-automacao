@@ -186,16 +186,13 @@ def modo_batch(caminho_json: str, idx: int) -> int:
         return 1
     rotulo, tipo, dados = items[idx]
 
-    # Autor da heranca (falecido, na habilitacao): vai para o form "Autor da
-    # heranca", que tem campos de obito (Data/Assento) e AINDA NAO esta calibrado.
-    # Nao correr o filler do outorgante singular (desalinhava) - avisar.
+    # Autor da heranca (falecido, na habilitacao): form "Autor da heranca" =
+    # outorgante singular + Data/Assento de obito (calibrado 2026-07-10). A data e
+    # o assento vivem ao nivel da Habilitacao, por isso injectamo-los no item.
     if tipo == "autor_heranca":
-        _escrever_status(
-            "manual", rotulo,
-            "form 'Autor da herança' ainda por automatizar (tem Data/Assento de óbito). "
-            "Preenche à mão com os dados extraídos na app.",
-        )
-        return 4
+        dados = {**dados, "_autor_heranca": True,
+                 "data_obito": campos.get("data_obito"),
+                 "assento_obito": campos.get("assento_obito")}
 
     fill_fn, primeiro_campo = _dispatch(tipo, dados)
 
@@ -280,10 +277,9 @@ def main() -> None:
 
         rotulo, tipo, dados = items[idx]
         if tipo == "autor_heranca":
-            print(f"\n  ✍️  {rotulo}: form 'Autor da herança' ainda por automatizar")
-            print("      (tem Data/Assento de óbito). Preenche à mão com os dados da app.")
-            input("Enter para voltar ao menu... ")
-            continue
+            dados = {**dados, "_autor_heranca": True,
+                     "data_obito": campos.get("data_obito"),
+                     "assento_obito": campos.get("assento_obito")}
         fill_fn, primeiro_campo = _dispatch(tipo, dados)
         if tipo == "bem":
             bens = campos.get("bens", [])

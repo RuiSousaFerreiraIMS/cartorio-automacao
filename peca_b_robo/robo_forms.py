@@ -130,7 +130,17 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
         escrever(o.get("nome", ""))
     tab()      # move para fora do Nome (escrevemos ou nao)
 
-    # 2-4. Checkboxes (Estatuto Emigrante / Contab / IVA) - saltar
+    # Form "Autor da heranca" (habilitacao): calibrado 2026-07-10 = form do
+    # outorgante singular + 2 campos LOGO A SEGUIR AO NOME (Data de Obito=2,
+    # Assento de Obito=3). Nos outros forms estes campos nao existem, por isso so
+    # se preenchem quando o robo.py marca o item como autor da heranca.
+    if o.get("_autor_heranca"):
+        escrever(_data_simn(o.get("data_obito")))  # 2. Data de Obito (mask de data)
+        tab()
+        escrever(o.get("assento_obito") or "")     # 3. Assento de Obito (texto)
+        tab()
+
+    # Checkboxes (Estatuto Emigrante / Contab / IVA) - saltar
     tab(3)
 
     # 5. Naturalidade Concelho (dropdown de ESCRITA). Metodo do notario:
