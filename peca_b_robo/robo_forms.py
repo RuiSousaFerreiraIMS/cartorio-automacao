@@ -42,28 +42,13 @@ def _valor_simn(euros: Any) -> str:
 
 
 def _data_simn(iso: Any) -> str:
-    """Converte uma data para o formato do campo de DATA do SIMN (DD/MM/AAAA).
+    """Converte uma data para os campos de DATA do SIMN (mask AAAA/MM/DD).
 
-    Devolve so os 8 digitos 'DDMMAAAA' (escrever isso enche o campo __/__/__).
+    Devolve so os 8 digitos na ordem 'AAAAMMDD' (escrever isso enche o campo
+    __/__/__). Testado no cartorio (2026-07-10): tanto a Data de Obito da
+    habilitacao como a Data do registo de inscricao do bem usam esta ordem;
+    escrever DDMMAAAA punha, p.ex., 25/04/2026 como '2504/20/26'.
     Aceita 'AAAA-MM-DD' (o formato do schema) ou 'DD/MM/AAAA'/'DD-MM-AAAA'.
-    """
-    import re
-    if not iso:
-        return ""
-    s = str(iso).strip()
-    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
-    if m:
-        ano, mes, dia = m.groups()
-        return f"{dia}{mes}{ano}"
-    digs = re.sub(r"\D", "", s)  # ja em DD/MM/AAAA -> 8 digitos na ordem certa
-    return digs if len(digs) == 8 else ""
-
-
-def _data_obito_simn(iso: Any) -> str:
-    """Data para o campo Data de Obito da habilitacao (mask AAAAMMDD, NAO DDMMAAAA).
-
-    Este campo especifico do SIMN espera os digitos na ordem ano-mes-dia.
-    Aceita 'AAAA-MM-DD' (schema) ou 'DD/MM/AAAA'/'DD-MM-AAAA'.
     """
     import re
     if not iso:
@@ -155,7 +140,7 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # mais LOGO A SEGUIR AO NOME - Data de Obito (2) e Assento de Obito (3). So o
     # robo.py, no falecido, marca `_autor_heranca` e injecta data_obito/assento.
     if o.get("_autor_heranca"):
-        escrever(_data_obito_simn(o.get("data_obito")))  # 2. Data de Obito (mask AAAAMMDD)
+        escrever(_data_simn(o.get("data_obito")))  # 2. Data de Obito (mask AAAA/MM/DD)
         tab()
         escrever(o.get("assento_obito") or "")     # 3. Assento de Obito (texto)
         tab()
