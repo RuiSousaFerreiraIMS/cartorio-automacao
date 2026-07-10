@@ -21,6 +21,7 @@ from robo_actions import (
     escrever,
     escrever_dropdown,
     ler_campo_atual,
+    selecionar_pais_dropdown,
     tab,
     tab_ctrl,
 )
@@ -172,12 +173,12 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
         escrever_dropdown(o["naturalidade_freguesia"])
         tab()  # confirma
     tab()      # avanca -> Pais
-    # 7. Naturalidade Pais. Portugues: deixar (Portugal), so avancar. ESTRANGEIRO:
-    # escrever o pais (a naturalidade dele E o pais, ex "Estados Unidos da America").
-    # Igual aos outros dropdowns de escrita: escrever -> Tab confirma (absorvido).
+    # 7. Naturalidade Pais (dropdown de SELECAO). Portugues: deixar (Portugal), so
+    # avancar. ESTRANGEIRO: escrever SO a 1a palavra do pais (a naturalidade dele E
+    # o pais, ex "Estados Unidos da America" -> "estados"). NAO leva Tab de
+    # confirmacao: os Tabs ficam IGUAIS ao portugues, so a selecao muda inline.
     if estrangeiro and o.get("naturalidade"):
-        escrever_dropdown(o["naturalidade"])
-        tab()  # confirma
+        selecionar_pais_dropdown(o["naturalidade"])
     tab()      # -> stop fantasma
     # 8. STOP FANTASMA (controlo invisivel entre a Naturalidade e a Morada)
     tab()      # -> Morada
@@ -211,12 +212,12 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # Estado Civil caiam no dropdown do Pais (ficava "Quenia"). So neste form.
     if o.get("_autor_heranca"):
         tab()
-    # 16. Morada Pais. Portugues: deixar (Portugal). ESTRANGEIRO: escrever o pais
-    # de residencia. Usamos o mesmo pais da naturalidade (no estrangeiro coincidem
-    # quase sempre; a funcionaria corrige o caso raro em que difere).
+    # 16. Morada Pais (dropdown de SELECAO). Portugues: deixar (Portugal).
+    # ESTRANGEIRO: escrever SO a 1a palavra do pais de residencia. Usamos o mesmo
+    # pais da naturalidade (no estrangeiro coincidem quase sempre; a funcionaria
+    # corrige o caso raro). Sem Tab de confirmacao (Tabs iguais ao portugues).
     if estrangeiro and o.get("naturalidade"):
-        escrever_dropdown(o["naturalidade"])
-        tab()  # confirma
+        selecionar_pais_dropdown(o["naturalidade"])
     tab()      # -> stop fantasma
     # 17. STOP FANTASMA (entre Morada Pais e Estado Civil)
     tab()      # -> Estado Civil

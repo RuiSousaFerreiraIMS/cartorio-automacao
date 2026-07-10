@@ -99,6 +99,25 @@ def escrever_dropdown(valor: str | None) -> None:
         time.sleep(0.35)  # deixar o popup do autocomplete abrir e estabilizar
 
 
+def selecionar_pais_dropdown(valor: str | None) -> None:
+    """Dropdown de PAIS (Naturalidade/Morada): combo de SELECAO (NAO editavel),
+    diferente do Concelho/Freguesia. Escreve-se so a PRIMEIRA PALAVRA do pais para
+    a selecao saltar para ele. Escrever o nome todo estraga tudo: ao chegar ao
+    espaco/2a palavra o combo RECOMECA a busca pela letra seguinte e salta para
+    outro pais (o Rui provou: 'estados unidos' -> ao 'u' salta para Ucrania).
+    NAO leva Tab de confirmacao (nao ha popup como no Concelho): a selecao fica
+    feita e quem chama avanca com os Tabs normais.
+    """
+    if not valor:
+        return
+    partes = _sem_acentos(str(valor)).strip().lower().split()
+    if not partes:
+        return
+    time.sleep(0.35)
+    pyautogui.write(partes[0], interval=0.08)  # so a 1a palavra (ex: "estados")
+    time.sleep(0.35)
+
+
 def radio_selecionar(indice: int) -> None:
     """Selecciona a opcao `indice` (0 = primeira) de um grupo de radios Java Swing.
 
