@@ -59,6 +59,27 @@ def _data_simn(iso: Any) -> str:
     return digs if len(digs) == 8 else ""
 
 
+def _data_obito_simn(iso: Any) -> str:
+    """Data para o campo Data de Obito da habilitacao (mask AAAAMMDD, NAO DDMMAAAA).
+
+    Este campo especifico do SIMN espera os digitos na ordem ano-mes-dia.
+    Aceita 'AAAA-MM-DD' (schema) ou 'DD/MM/AAAA'/'DD-MM-AAAA'.
+    """
+    import re
+    if not iso:
+        return ""
+    s = str(iso).strip()
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
+    if m:
+        ano, mes, dia = m.groups()
+        return f"{ano}{mes}{dia}"
+    m = re.match(r"^(\d{2})[/-](\d{2})[/-](\d{4})$", s)  # DD/MM/AAAA
+    if m:
+        dia, mes, ano = m.groups()
+        return f"{ano}{mes}{dia}"
+    return ""
+
+
 # -----------------------------------------------------------------------------
 # Form do OUTORGANTE (Vendedor, Comprador, Doador, Donatario, Herdeiro, etc)
 # -----------------------------------------------------------------------------
@@ -134,7 +155,7 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # mais LOGO A SEGUIR AO NOME - Data de Obito (2) e Assento de Obito (3). So o
     # robo.py, no falecido, marca `_autor_heranca` e injecta data_obito/assento.
     if o.get("_autor_heranca"):
-        escrever(_data_simn(o.get("data_obito")))  # 2. Data de Obito (mask de data)
+        escrever(_data_obito_simn(o.get("data_obito")))  # 2. Data de Obito (mask AAAAMMDD)
         tab()
         escrever(o.get("assento_obito") or "")     # 3. Assento de Obito (texto)
         tab()

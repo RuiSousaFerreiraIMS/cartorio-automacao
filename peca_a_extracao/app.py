@@ -512,7 +512,7 @@ def card_outorgante(prefixo, indice, o):
     """Card com avatar circular, nome, summary, badge NIF, e form expandível."""
     key_open = f"open_{prefixo}_{indice}"
     if key_open not in st.session_state:
-        st.session_state[key_open] = (indice == 0)  # primeiro aberto por defeito
+        st.session_state[key_open] = False  # todos recolhidos por defeito; abre-se so se preciso
 
     bg_avatar, fg_avatar = _cor_avatar(o.nome)
     iniciais = _iniciais(o.nome)
