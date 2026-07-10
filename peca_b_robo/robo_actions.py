@@ -10,11 +10,69 @@ conteudo (ex: SIMN autopreenche o Nome apos NIF+Tab).
 
 from __future__ import annotations
 
+import ctypes
+from ctypes import wintypes
 import subprocess
 import time
 import unicodedata
 
 import pyautogui
+
+
+# -----------------------------------------------------------------------------
+# Escrita de teclas UNICODE (para caracteres acentuados que o pyautogui nao faz)
+# -----------------------------------------------------------------------------
+# O pyautogui.write NAO consegue escrever "e" acentuado (e' -> nada). Isto e'
+# critico no dropdown do Pais, que e' uma lista alfabetica SENSIVEL A ACENTOS:
+# escrever "belgica" salta o "Belgica" acentuado e cai no "Belize". Injetamos os
+# caracteres via SendInput com KEYEVENTF_UNICODE, que escreve qualquer caractere
+# tal e qual (acentos incluidos), independentemente do layout do teclado.
+_KEYEVENTF_UNICODE = 0x0004
+_KEYEVENTF_KEYUP = 0x0002
+_INPUT_KEYBOARD = 1
+
+
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = (("wVk", wintypes.WORD), ("wScan", wintypes.WORD),
+                ("dwFlags", wintypes.DWORD), ("time", wintypes.DWORD),
+                ("dwExtraInfo", ctypes.c_void_p))
+
+
+class _MOUSEINPUT(ctypes.Structure):
+    _fields_ = (("dx", wintypes.LONG), ("dy", wintypes.LONG),
+                ("mouseData", wintypes.DWORD), ("dwFlags", wintypes.DWORD),
+                ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_void_p))
+
+
+class _HARDWAREINPUT(ctypes.Structure):
+    _fields_ = (("uMsg", wintypes.DWORD), ("wParamL", wintypes.WORD),
+                ("wParamH", wintypes.WORD))
+
+
+class _INPUTUNION(ctypes.Union):
+    _fields_ = (("ki", _KEYBDINPUT), ("mi", _MOUSEINPUT), ("hi", _HARDWAREINPUT))
+
+
+class _INPUT(ctypes.Structure):
+    _fields_ = (("type", wintypes.DWORD), ("u", _INPUTUNION))
+
+
+def _tecla_unicode(cp: int, up: bool = False) -> None:
+    flags = _KEYEVENTF_UNICODE | (_KEYEVENTF_KEYUP if up else 0)
+    inp = _INPUT(type=_INPUT_KEYBOARD,
+                 u=_INPUTUNION(ki=_KEYBDINPUT(0, cp, flags, 0, None)))
+    ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
+
+
+def escrever_unicode(texto: str | None, intervalo: float = 0.07) -> None:
+    """Escreve `texto` caractere a caractere via SendInput unicode (acentos OK)."""
+    if not texto:
+        return
+    for ch in texto:
+        cp = ord(ch)
+        _tecla_unicode(cp, up=False)
+        _tecla_unicode(cp, up=True)
+        time.sleep(intervalo)
 
 # Killswitch: rato no canto superior esquerdo aborta tudo.
 pyautogui.FAILSAFE = True
@@ -101,20 +159,23 @@ def escrever_dropdown(valor: str | None) -> None:
 
 def selecionar_pais_dropdown(valor: str | None) -> None:
     """Dropdown de PAIS (Naturalidade/Morada): combo de SELECAO (NAO editavel),
-    diferente do Concelho/Freguesia. Escreve-se so a PRIMEIRA PALAVRA do pais para
-    a selecao saltar para ele. Escrever o nome todo estraga tudo: ao chegar ao
-    espaco/2a palavra o combo RECOMECA a busca pela letra seguinte e salta para
-    outro pais (o Rui provou: 'estados unidos' -> ao 'u' salta para Ucrania).
+    lista alfabetica SENSIVEL A ACENTOS. Escreve-se so a PRIMEIRA PALAVRA do pais
+    para a selecao saltar para ele, e COM acentos (via SendInput unicode):
+      - So a 1a palavra: escrever o nome todo estraga tudo, ao chegar ao espaco/2a
+        palavra o combo recomeca a busca e salta para outro pais ('estados unidos'
+        -> ao 'u' vai para Ucrania).
+      - COM acentos: sem o acento 'belgica' salta o 'Belgica' e cai no 'Belize';
+        so 'belgica' com o 'e' certo e' que acerta.
     NAO leva Tab de confirmacao (nao ha popup como no Concelho): a selecao fica
     feita e quem chama avanca com os Tabs normais.
     """
     if not valor:
         return
-    partes = _sem_acentos(str(valor)).strip().lower().split()
+    partes = str(valor).strip().lower().split()  # acentos PRESERVADOS
     if not partes:
         return
     time.sleep(0.35)
-    pyautogui.write(partes[0], interval=0.08)  # so a 1a palavra (ex: "estados")
+    escrever_unicode(partes[0], intervalo=0.08)  # so a 1a palavra, com acentos
     time.sleep(0.35)
 
 
