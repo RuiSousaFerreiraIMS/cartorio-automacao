@@ -41,6 +41,24 @@ def _valor_simn(euros: Any) -> str:
         return ""
 
 
+def _data_simn(iso: Any) -> str:
+    """Converte uma data para o formato do campo de DATA do SIMN (DD/MM/AAAA).
+
+    Devolve so os 8 digitos 'DDMMAAAA' (escrever isso enche o campo __/__/__).
+    Aceita 'AAAA-MM-DD' (o formato do schema) ou 'DD/MM/AAAA'/'DD-MM-AAAA'.
+    """
+    import re
+    if not iso:
+        return ""
+    s = str(iso).strip()
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
+    if m:
+        ano, mes, dia = m.groups()
+        return f"{dia}{mes}{ano}"
+    digs = re.sub(r"\D", "", s)  # ja em DD/MM/AAAA -> 8 digitos na ordem certa
+    return digs if len(digs) == 8 else ""
+
+
 # -----------------------------------------------------------------------------
 # Form do OUTORGANTE (Vendedor, Comprador, Doador, Donatario, Herdeiro, etc)
 # -----------------------------------------------------------------------------
@@ -296,7 +314,7 @@ def preencher_bem(b: dict[str, Any]) -> str:
        01 Fraccao autonoma       (texto)  <- escrevemos (letra da fraccao)
        02 Seccao                 (texto)  saltar
        03 Arvore/Colonia         (texto)  saltar
-       04 Data registo inscricao (data)   saltar
+       04 Data registo inscricao (data)   <- SO se o Artigo comecar por "P"
        05 Afectacao              (texto)  saltar - funcionaria
        06 Tipo Regime            (texto)  saltar - funcionaria
        07 Tipo Direito           (DROPDOWN) saltar - funcionaria
@@ -357,15 +375,25 @@ def preencher_bem(b: dict[str, Any]) -> str:
         tab(2)                      # Urbano -> Rustico -> Artigo
 
     # 00 Artigo (texto). Regra do notario: so o numero, sem sufixo (ja normalizado).
-    escrever(b.get("artigo_matricial", ""))
+    artigo = str(b.get("artigo_matricial") or "")
+    escrever(artigo)
     tab()       # -> 01 Fraccao autonoma
     # 01 Fraccao autonoma (letra da fraccao, ex "P")
     escrever(b.get("designacao_fracao", ""))
     tab()       # -> 02 Seccao
 
-    # 02..11: Seccao, Arvore, Data inscricao, Afectacao, Tipo Regime, Tipo Direito,
-    # Ident. Conservatoria, 2 fantasmas, Data provisorio -> saltar ate ao Nº Registo.
-    tab(10)     # 02 -> 12 (Nº Registo)
+    # 02,03: Seccao, Arvore -> saltar ate a Data do registo de inscricao (04).
+    tab(2)      # 02 -> 04 (Data registo inscricao)
+
+    # 04 Data do registo de inscricao (regra do notario 2026-07-10): SO obrigatoria
+    # quando o Artigo comeca por "P" (predio participado/provisorio). Nesse caso o
+    # valor e a data da inscricao no Servico de Financas (data_inscricao_matriz).
+    if artigo.strip().upper().startswith("P") and b.get("data_inscricao_matriz"):
+        escrever(_data_simn(b["data_inscricao_matriz"]))
+
+    # 04..11: Afectacao, Tipo Regime, Tipo Direito, Ident. Conservatoria, 2
+    # fantasmas, Data provisorio -> saltar ate ao Nº Registo.
+    tab(8)      # 04 -> 12 (Nº Registo)
 
     # 12 Nº Registo (descricao predial). Regra do notario: omisso => campo vazio.
     desc = (b.get("descricao_predial") or "").strip()

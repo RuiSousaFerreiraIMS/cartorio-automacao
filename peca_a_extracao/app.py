@@ -733,6 +733,18 @@ def editar_bem(indice, b):
         c2.text_input("Artigo matricial", b.artigo_matricial or "", key=k("art"))
     )
 
+    # Data de inscrição na matriz: obrigatória no SIMN só quando o artigo começa por "P".
+    _art = (b.artigo_matricial or "").strip().upper()
+    if _art.startswith("P"):
+        b.data_inscricao_matriz = _vazio_para_none(
+            st.text_input(
+                "Data de inscrição na matriz (AAAA-MM-DD) — artigo P, obrigatória",
+                b.data_inscricao_matriz or "",
+                placeholder="Ex: 2026-04-25 (data do Serviço de Finanças)",
+                key=k("datamatriz"),
+            )
+        )
+
     b.certidao_predial = _vazio_para_none(
         st.text_input("Certidão Predial Permanente", b.certidao_predial or "", key=k("cert"))
     )
@@ -1124,6 +1136,10 @@ if st.session_state.get("robo_lancado"):
           <li>Vai ao <b>SIMN</b> e clica no <b>1º campo</b> (Pessoa/Empresa: Nº Contribuinte · Bem: Concelho · DUC: Número). O robô arranca sozinho. <i>Nas empresas basta o NIPC: o SIMN preenche o resto.</i></li>
           <li>Revê, clica <b>OK</b> no SIMN, passa ao próximo</li>
         </ol>
+        <div style="margin-top:8px; font-size:12px; color:#0369A1;">
+          À mão (o robô não faz): o painel <b>Objeto / Valores</b> e as <b>Relações</b>
+          (ligar vendedor ↔ bem ↔ comprador).
+        </div>
       </div>
     </div>
     """, unsafe_allow_html=True)

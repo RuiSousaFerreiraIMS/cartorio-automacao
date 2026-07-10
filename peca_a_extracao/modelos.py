@@ -227,6 +227,12 @@ class Bem(_Base):
     freguesia: Optional[str] = None
     concelho: Optional[str] = None
     tipo: Optional[str] = Field(None, description="'U' urbano, 'R' rustico.")
+    data_inscricao_matriz: Optional[str] = Field(
+        None,
+        description="Data da inscricao na matriz (Serv. Financas), ex '2026-04-25'. So "
+                    "obrigatoria no SIMN quando o artigo comeca por 'P' (predio participado, "
+                    "ainda provisorio). Vem de 'apresentada no Servico de Financas ... em DATA'.",
+    )
     valor_patrimonial: Optional[float] = Field(None, description="VPT em euros.")
     morada: Optional[str] = None
     codigo_simn: Optional[str] = Field(

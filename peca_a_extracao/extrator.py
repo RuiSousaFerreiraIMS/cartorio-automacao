@@ -124,6 +124,7 @@ Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
   "compradores": [ ... igual aos vendedores ... ],
   "bens": [{"designacao_fracao": "P", "descricao_predial": "...",
             "certidao_predial": "...", "artigo_matricial": "...",
+            "data_inscricao_matriz": null,
             "freguesia": "...", "concelho": "...", "tipo": "U",
             "valor_patrimonial": 100504.66, "morada": "...",
             "codigo_simn": null, "descricao_livre": "..."}],
@@ -178,6 +179,11 @@ Regras importantes:
   sempre POR EXTENSO ("descrito na Conservatoria... com o numero seis mil duzentos e setenta e
   um" = "6271"). CONVERTE para digitos. Se a escritura disser que o predio e OMISSO/nao descrito,
   poe "omisso". E OBRIGATORIO no SIMN (campo Nº Registo), esforca-te por o obter.
+- data_inscricao_matriz: SO relevante quando o artigo matricial comeca por "P" (ex "P11040"),
+  que significa predio participado/provisorio ainda em inscricao. Nesse caso a escritura diz algo
+  como "declaracao para inscricao ... apresentada no Servico de Financas de X em DD/MM/AAAA, com
+  o registo numero N". Extrai essa DATA no formato AAAA-MM-DD (ex "2026-04-25"). Se o artigo NAO
+  comeca por P, ou nao ha essa data, poe null.
 - preco_venda: o valor por extenso na escritura (ex "DUZENTOS E OITENTA MIL EUROS" = 280000.0).
 - valor_patrimonial: o VPT da fracao se mencionado.
 - hipoteca_a_cancelar: true se o texto fala em cancelamento de hipoteca existente.
