@@ -402,10 +402,12 @@ Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
   "mnemonica": "HAB",
   "data_escritura": "AAAA-MM-DD",
   "autor_heranca": {"nif": "...", "nome": "...", "e_empresa": false,
-                    "estado_civil": "...", "naturalidade_concelho": "...",
-                    "naturalidade_freguesia": "...", "nacionalidade": "...",
-                    "morada": "...", "doc_identificacao": null},
+                    "estado_civil": "casado", "regime_bens": "comunhao_geral",
+                    "naturalidade_concelho": "...", "naturalidade_freguesia": "...",
+                    "nacionalidade": "...", "morada": "...", "morada_localidade": "...",
+                    "morada_concelho": "...", "morada_freguesia": "...", "doc_identificacao": null},
   "data_obito": "AAAA-MM-DD",
+  "assento_obito": "...",
   "com_testamento": false,
   "herdeiros": [ ... mesma estrutura de outorgantes ... ],
   "declarantes": [ ... outorgantes que comparecem e declaram ... ],
@@ -414,11 +416,19 @@ Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
 }
 
 Regras:
-- autor_heranca: a pessoa falecida (a 'pessoa de cujus'). Inclui dados pessoais.
-- data_obito: a data em que faleceu.
+- autor_heranca: a pessoa FALECIDA (a 'pessoa de cujus'), NAO a outorgante/cabeca de casal. O
+  texto diz "faleceu FULANO, natural de..., ultima residencia habitual em..., no estado de
+  casado com... sob o regime de...". Preenche o MAXIMO: nome, naturalidade_concelho/freguesia,
+  estado_civil e regime_bens do falecido, e a morada (= a ULTIMA RESIDENCIA HABITUAL; se disser
+  "na morada da outorgante", usa a morada da outorgante). O NIF do falecido normalmente NAO
+  aparece: deixa null.
+- data_obito: a data em que faleceu (converte por extenso -> AAAA-MM-DD).
+- assento_obito: o numero da "certidao do assento de obito" que aparece no Arquivo (ex
+  "assento de obito (2783-4424-6741)" -> "2783-4424-6741"). E o campo "Assento de Obito" do SIMN.
 - com_testamento: true se a escritura menciona testamento ativo (cedula testamentaria).
-- herdeiros: lista dos herdeiros identificados (cnjuge, filhos, herdeiros universais).
-- declarantes: quem comparece e declara perante o notario (pode incluir herdeiros e/ou testemunhas).
+- herdeiros: lista dos herdeiros identificados (conjuge, filhos, herdeiros universais), com NIF,
+  nome, estado_civil, naturalidade, morada quando disponivel.
+- declarantes: quem comparece e declara perante o notario (a cabeca de casal e/ou testemunhas).
 - Outorgantes (autor_heranca, herdeiros, declarantes): naturalidade em naturalidade_concelho +
   naturalidade_freguesia (infere o concelho a partir da freguesia se preciso).
 - Se nao encontrares, poe null. Nunca inventes.
@@ -480,8 +490,45 @@ def extrair_partilha(texto: str, modelo: str | None = None) -> Partilha:
     return p
 
 
+import unicodedata as _ud
+
+
+def _sem_acentos(s: str) -> str:
+    return "".join(c for c in _ud.normalize("NFD", s) if _ud.category(c) != "Mn")
+
+
+# Tipos de ato: mnemonica interna -> nome legivel (a app usa para escolher/corrigir).
+TIPOS_ATO = [
+    ("cv", "Compra e Venda"),
+    ("doacao", "Doação"),
+    ("habilitacao", "Habilitação"),
+    ("partilha", "Partilha"),
+]
+
+
+def detetar_tipo_por_texto(texto: str) -> str:
+    """Deteta o tipo de ato pelo CONTEUDO do texto. Devolve
+    'cv'|'doacao'|'habilitacao'|'partilha' (default 'cv').
+
+    Porque nao pelo nome do ficheiro: a app grava a escritura num temporario com
+    nome ALEATORIO, por isso a deteccao pelo nome dava sempre 'cv'. A funcionaria
+    pode sempre corrigir o tipo na app.
+    """
+    t = _sem_acentos((texto or "").lower())
+    cab = t[:2500]  # cabecalho: titulo + natureza do ato
+    if "habilita" in cab or (
+        "faleceu" in t and ("cabeca de casal" in t or "herdeir" in t or "de cujus" in t)
+    ):
+        return "habilitacao"
+    if "partilha" in cab or ("adjudica" in t and ("quinhao" in t or "acervo" in t)):
+        return "partilha"
+    if "doacao" in cab or "donatari" in t:
+        return "doacao"
+    return "cv"
+
+
 def detetar_tipo(caminho: str) -> str:
-    """Deteta o tipo de ato pelo nome do ficheiro. Devolve 'cv'|'doacao'|'habilitacao'|'partilha'."""
+    """(Legado, usado pela CLI.) Deteta o tipo pelo NOME do ficheiro."""
     nome = os.path.basename(caminho).lower()
     if "habilita" in nome:
         return "habilitacao"
@@ -489,7 +536,7 @@ def detetar_tipo(caminho: str) -> str:
         return "doacao"
     if "partilha" in nome:
         return "partilha"
-    return "cv"  # default
+    return "cv"
 
 
 _DISPATCHERS = {
@@ -500,11 +547,23 @@ _DISPATCHERS = {
 }
 
 
-def extrair_de_ficheiro(caminho: str):
-    """Conveniencia: ficheiro .doc/.docx -> objeto validado (CV/Doacao/Habilitacao/Partilha)."""
-    tipo = detetar_tipo(caminho)
-    _log(f"Tipo detetado pelo nome: {tipo}")
+def extrair_texto(texto: str, tipo: str, modelo: str | None = None):
+    """Extrai a partir de TEXTO ja lido, com um tipo EXPLICITO. A app usa isto
+    para re-extrair quando a funcionaria corrige o tipo, sem reler o ficheiro."""
+    if tipo not in _DISPATCHERS:
+        raise ValueError(f"Tipo de ato desconhecido: {tipo!r}")
+    return _DISPATCHERS[tipo](texto, modelo)
+
+
+def extrair_de_ficheiro(caminho: str, tipo: str | None = None):
+    """Ficheiro .doc/.docx -> objeto validado. Se `tipo` for None, deteta pelo
+    CONTEUDO (nao pelo nome, que na app e' um temporario aleatorio)."""
     texto = ler_documento(caminho)
+    if tipo is None:
+        tipo = detetar_tipo_por_texto(texto)
+        _log(f"Tipo detetado pelo conteudo: {tipo}")
+    else:
+        _log(f"Tipo indicado: {tipo}")
     return _DISPATCHERS[tipo](texto)
 
 

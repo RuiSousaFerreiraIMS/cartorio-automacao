@@ -185,6 +185,18 @@ def modo_batch(caminho_json: str, idx: int) -> int:
         _escrever_status("erro", f"idx {idx}", f"fora de gama ({len(items)} itens).")
         return 1
     rotulo, tipo, dados = items[idx]
+
+    # Autor da heranca (falecido, na habilitacao): vai para o form "Autor da
+    # heranca", que tem campos de obito (Data/Assento) e AINDA NAO esta calibrado.
+    # Nao correr o filler do outorgante singular (desalinhava) - avisar.
+    if tipo == "autor_heranca":
+        _escrever_status(
+            "manual", rotulo,
+            "form 'Autor da herança' ainda por automatizar (tem Data/Assento de óbito). "
+            "Preenche à mão com os dados extraídos na app.",
+        )
+        return 4
+
     fill_fn, primeiro_campo = _dispatch(tipo, dados)
 
     # Bem de uma CV de UM so bem: injectar o preco da venda (o form do Bem tem
@@ -267,6 +279,11 @@ def main() -> None:
             break
 
         rotulo, tipo, dados = items[idx]
+        if tipo == "autor_heranca":
+            print(f"\n  ✍️  {rotulo}: form 'Autor da herança' ainda por automatizar")
+            print("      (tem Data/Assento de óbito). Preenche à mão com os dados da app.")
+            input("Enter para voltar ao menu... ")
+            continue
         fill_fn, primeiro_campo = _dispatch(tipo, dados)
         if tipo == "bem":
             bens = campos.get("bens", [])

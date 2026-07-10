@@ -416,6 +416,9 @@ class Habilitacao(_Base):
         None, description="O falecido (a 'pessoa de cujus'). Dados pessoais + data de obito."
     )
     data_obito: Optional[str] = Field(None, description="Data do obito do autor da heranca.")
+    assento_obito: Optional[str] = Field(
+        None, description="Nº da certidao do assento de obito (campo 'Assento de Obito' do SIMN)."
+    )
     com_testamento: bool = Field(False, description="True se o ato menciona testamento ativo.")
     herdeiros: list[Outorgante] = Field(default_factory=list)
     declarantes: list[Outorgante] = Field(

@@ -1,0 +1,400 @@
+<title>Manual de Instalação — Cartório Escrituras</title>
+<style>
+  :root {
+    --bg: #F5F7F9;
+    --panel: #FFFFFF;
+    --ink: #1A2230;
+    --ink-soft: #55616F;
+    --ink-faint: #8B95A3;
+    --border: #E4E8EE;
+    --accent: #2E4E7E;
+    --accent-soft: #EAF0F8;
+    --ok: #1E7A49;
+    --warn: #98680F;
+    --bad: #B23A34;
+    --code-bg: #0E1622;
+    --code-panel: #17202E;
+    --code-ink: #E7EEF6;
+    --code-faint: #8FA0B4;
+    --radius: 12px;
+    --maxw: 720px;
+    --shadow: 0 1px 2px rgba(17,28,45,.05), 0 10px 30px rgba(17,28,45,.045);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F131A;
+      --panel: #161C25;
+      --ink: #E8EDF4;
+      --ink-soft: #A7B1BF;
+      --ink-faint: #6E7889;
+      --border: #263039;
+      --accent: #7EA6D8;
+      --accent-soft: #1A2637;
+      --ok: #4FB37E;
+      --warn: #D2A046;
+      --bad: #E0736C;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F131A; --panel: #161C25; --ink: #E8EDF4; --ink-soft: #A7B1BF;
+    --ink-faint: #6E7889; --border: #263039; --accent: #7EA6D8; --accent-soft: #1A2637;
+    --ok: #4FB37E; --warn: #D2A046; --bad: #E0736C;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.28);
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F7F9; --panel: #FFFFFF; --ink: #1A2230; --ink-soft: #55616F;
+    --ink-faint: #8B95A3; --border: #E4E8EE; --accent: #2E4E7E; --accent-soft: #EAF0F8;
+    --ok: #1E7A49; --warn: #98680F; --bad: #B23A34;
+    --shadow: 0 1px 2px rgba(17,28,45,.05), 0 10px 30px rgba(17,28,45,.045);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 40px 20px 80px; }
+
+  /* Header */
+  header { margin-bottom: 28px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  h1 {
+    font-size: clamp(26px, 5vw, 34px); line-height: 1.15; margin: 0 0 8px;
+    letter-spacing: -.02em; text-wrap: balance;
+  }
+  .lede { color: var(--ink-soft); font-size: 15.5px; margin: 0; max-width: 60ch; }
+
+  /* Prep callout */
+  .callout {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--accent-soft); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px; padding: 14px 16px; margin: 26px 0 34px;
+    font-size: 14.5px;
+  }
+  .callout b { color: var(--ink); }
+  .callout .ic { color: var(--accent); flex: none; margin-top: 1px; }
+
+  /* Steps */
+  .steps { display: flex; flex-direction: column; gap: 16px; counter-reset: step; }
+  .step {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 20px 22px; position: relative;
+    transition: opacity .18s ease;
+  }
+  .step-head { display: flex; align-items: center; gap: 14px; }
+  .num {
+    flex: none; width: 30px; height: 30px; border-radius: 8px;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 15px;
+    display: grid; place-items: center; letter-spacing: -.02em;
+  }
+  :root[data-theme="dark"] .num, @media (prefers-color-scheme: dark) { }
+  .step h2 {
+    margin: 0; font-size: 18px; letter-spacing: -.01em; flex: 1 1 auto;
+    text-wrap: balance;
+  }
+  .done-toggle {
+    flex: none; width: 24px; height: 24px; border-radius: 999px;
+    border: 1.5px solid var(--border); background: transparent; cursor: pointer;
+    display: grid; place-items: center; color: transparent; padding: 0;
+    transition: all .15s ease;
+  }
+  .done-toggle:hover { border-color: var(--accent); }
+  .done-toggle svg { width: 13px; height: 13px; }
+  .step-body { margin-top: 12px; padding-left: 44px; }
+  .step-body p { margin: 0 0 12px; color: var(--ink-soft); font-size: 14.5px; }
+  .step-body p:last-child { margin-bottom: 0; }
+  .step-body strong { color: var(--ink); font-weight: 650; }
+
+  .step.done { opacity: .55; }
+  .step.done .num { background: var(--ok); }
+  .step.done .done-toggle { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .step.done h2 { text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+
+  /* Option label (A / B) */
+  .opt { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--accent); margin: 4px 0 6px; }
+  .opt.b { color: var(--ink-faint); margin-top: 16px; }
+
+  /* Links */
+  a.link {
+    color: var(--accent); font-weight: 600; text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    word-break: break-word;
+  }
+  a.link:hover { border-bottom-color: var(--accent); }
+
+  .btn-link {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 13px; font-size: 14px; font-weight: 600; text-decoration: none;
+    transition: all .15s ease;
+  }
+  .btn-link:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .btn-link svg { width: 14px; height: 14px; opacity: .8; }
+
+  /* Command block — console look, dark in both themes */
+  .cmd {
+    position: relative; background: var(--code-bg); border-radius: 10px;
+    margin: 12px 0; border: 1px solid #223145; overflow: hidden;
+  }
+  .cmd-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px 7px 13px; border-bottom: 1px solid #1e2c40;
+    background: var(--code-panel);
+  }
+  .cmd-top .tag {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--code-faint);
+    font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  }
+  .copy {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; color: var(--code-ink);
+    border: 1px solid #2c3e57; border-radius: 6px;
+    padding: 4px 10px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    font-family: system-ui, sans-serif; transition: all .13s ease;
+  }
+  .copy:hover { background: #223247; border-color: #3a5171; }
+  .copy.ok { color: #63d295; border-color: #2f5c43; background: #16281d; }
+  .copy svg { width: 13px; height: 13px; }
+  .cmd pre {
+    margin: 0; padding: 13px 14px; overflow-x: auto;
+    font-family: ui-monospace, "Cascadia Code", "Consolas", "SF Mono", monospace;
+    font-size: 13px; line-height: 1.65; color: var(--code-ink);
+  }
+  .cmd pre code { white-space: pre; }
+  .cmd .muted { color: var(--code-faint); }
+
+  /* Result box */
+  .result {
+    font-family: ui-monospace, "Consolas", monospace; font-size: 13.5px; font-weight: 600;
+    color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--panel));
+    border: 1px solid color-mix(in srgb, var(--ok) 30%, var(--border));
+    border-radius: 8px; padding: 10px 14px; margin: 8px 0 0;
+  }
+
+  /* Troubleshooting */
+  .trouble { margin-top: 40px; }
+  .trouble h2 { font-size: 20px; letter-spacing: -.01em; margin: 0 0 4px; }
+  .trouble .sub { color: var(--ink-soft); font-size: 14px; margin: 0 0 16px; }
+  .tbl { display: flex; flex-direction: column; gap: 8px; }
+  .row {
+    display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); gap: 14px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 15px;
+  }
+  .row .sym { font-family: ui-monospace, "Consolas", monospace; font-size: 12.5px;
+    color: var(--bad); font-weight: 600; align-self: center; }
+  .row .fix { font-size: 14px; color: var(--ink-soft); align-self: center; }
+  .row .fix b { color: var(--ink); font-weight: 650; }
+  @media (max-width: 540px) { .row { grid-template-columns: 1fr; gap: 6px; } }
+
+  footer {
+    margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--border);
+    color: var(--ink-faint); font-size: 13px; text-align: center;
+  }
+  footer code {
+    font-family: ui-monospace, "Consolas", monospace; color: var(--ink-soft);
+    background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; font-size: 12px;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Cartório · Automação de Escrituras</div>
+    <h1>Manual de instalação da app</h1>
+    <p class="lede">Passo a passo para instalar no computador de cada funcionária, sem erros. Copia os comandos com o botão <b>Copiar</b> e clica os links para descarregar.</p>
+  </header>
+
+  <div class="callout">
+    <span class="ic" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V5l-8-3Z"/></svg>
+    </span>
+    <div><b>Antes de começar:</b> tem à mão a <b>chave da API do Claude</b> (começa por <code style="font-family:ui-monospace,Consolas,monospace">sk-ant-…</code>). É a mesma para todos os PCs; o instalador vai pedi-la.</div>
+  </div>
+
+  <div class="steps">
+
+    <!-- 1 -->
+    <div class="step">
+      <div class="step-head">
+        <span class="num">1</span>
+        <h2>Instalar o Python</h2>
+        <button class="done-toggle" title="Marcar como feito" aria-label="Marcar como feito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button>
+      </div>
+      <div class="step-body">
+        <p>Descarrega e instala o Python. <strong>Marca a caixa “Add Python to PATH”</strong> no início do instalador (é o passo mais importante).</p>
+        <a class="btn-link" href="https://www.python.org/downloads/" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+          python.org/downloads
+        </a>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="step">
+      <div class="step-head">
+        <span class="num">2</span>
+        <h2>Instalar o LibreOffice</h2>
+        <button class="done-toggle" title="Marcar como feito" aria-label="Marcar como feito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button>
+      </div>
+      <div class="step-body">
+        <p>Serve para ler as escrituras <strong>.doc</strong> antigas. Instala com as opções por defeito.</p>
+        <a class="btn-link" href="https://pt.libreoffice.org/descarregar/" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+          libreoffice.org/descarregar
+        </a>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="step">
+      <div class="step-head">
+        <span class="num">3</span>
+        <h2>Pôr o código em C:\cartorio-automacao</h2>
+        <button class="done-toggle" title="Marcar como feito" aria-label="Marcar como feito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button>
+      </div>
+      <div class="step-body">
+        <div class="opt">Opção A — recomendada (com Git, permite atualizar depois)</div>
+        <p>Instala o Git e depois corre o comando no PowerShell:</p>
+        <a class="btn-link" href="https://git-scm.com/download/win" target="_blank" rel="noopener" style="margin-bottom:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+          git-scm.com/download/win
+        </a>
+        <div class="cmd">
+          <div class="cmd-top"><span class="tag">PowerShell</span></div>
+          <pre><code>git clone https://github.com/RuiSousaFerreiraIMS/cartorio-automacao.git C:\cartorio-automacao</code></pre>
+        </div>
+        <div class="opt b">Opção B — sem Git</div>
+        <p>Copia a pasta do projeto (por pen ou rede) para <strong>C:\cartorio-automacao</strong>.</p>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="step">
+      <div class="step-head">
+        <span class="num">4</span>
+        <h2>Correr o instalador</h2>
+        <button class="done-toggle" title="Marcar como feito" aria-label="Marcar como feito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button>
+      </div>
+      <div class="step-body">
+        <p>Abre o <strong>PowerShell</strong> (menu Iniciar → escreve “PowerShell” → Enter) e cola este comando:</p>
+        <div class="cmd">
+          <div class="cmd-top"><span class="tag">PowerShell</span></div>
+          <pre><code>powershell -ExecutionPolicy Bypass -File C:\cartorio-automacao\instalar.ps1</code></pre>
+        </div>
+        <p>Instala tudo sozinho (uns minutos de download). A meio <strong>pede a chave da API</strong> — cola a <code style="font-family:ui-monospace,Consolas,monospace">sk-ant-…</code> e Enter.</p>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="step">
+      <div class="step-head">
+        <span class="num">5</span>
+        <h2>Confirmar que ficou bem</h2>
+        <button class="done-toggle" title="Marcar como feito" aria-label="Marcar como feito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button>
+      </div>
+      <div class="step-body">
+        <p>No fim, os testes automáticos correm. Só está pronto quando aparecer:</p>
+        <div class="result">RESULTADO: TUDO OK.</div>
+        <p style="margin-top:12px">Se aparecer algum <strong>[FALHA]</strong>, o resumo diz o que falta. Corrige e corre o <code style="font-family:ui-monospace,Consolas,monospace">instalar.ps1</code> outra vez. (Ver a tabela em baixo.)</p>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="step">
+      <div class="step-head">
+        <span class="num">6</span>
+        <h2>Testar a app</h2>
+        <button class="done-toggle" title="Marcar como feito" aria-label="Marcar como feito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button>
+      </div>
+      <div class="step-body">
+        <p>Duplo-clique no atalho <strong>“Cartorio Escrituras”</strong> no ambiente de trabalho. Abre o browser na app. Carrega uma escritura de exemplo e vê se extrai os campos.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Extras -->
+  <div class="trouble">
+    <h2>Reconfirmar depois (sem reinstalar)</h2>
+    <p class="sub">A qualquer momento, para correr só os testes:</p>
+    <div class="cmd">
+      <div class="cmd-top"><span class="tag">PowerShell</span></div>
+      <pre><code>C:\cartorio-automacao\.venv\Scripts\python.exe C:\cartorio-automacao\verificar_instalacao.py</code></pre>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <h2>Atualizar quando o código mudar</h2>
+    <p class="sub">Só na Opção A (com Git). Corre linha a linha:</p>
+    <div class="cmd">
+      <div class="cmd-top"><span class="tag">PowerShell</span></div>
+      <pre><code>cd C:\cartorio-automacao
+git pull
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe verificar_instalacao.py</code></pre>
+    </div>
+  </div>
+
+  <div class="trouble">
+    <h2>Se algum teste falhar</h2>
+    <p class="sub">O que fazer para cada <span style="color:var(--bad);font-weight:600">[FALHA]</span> mais comum:</p>
+    <div class="tbl">
+      <div class="row"><div class="sym">Versão do Python</div><div class="fix">Reinstalar o Python marcando <b>“Add Python to PATH”</b>.</div></div>
+      <div class="row"><div class="sym">Pacote pyautogui / opencv…</div><div class="fix">O <b>pip</b> falhou (internet?). Correr o <b>instalar.ps1</b> outra vez.</div></div>
+      <div class="row"><div class="sym">Leitor de .doc antigo</div><div class="fix">Instalar o <b>LibreOffice</b> (passo 2) e recorrer o verificador.</div></div>
+      <div class="row"><div class="sym">Chave da API</div><div class="fix">Correr o <b>instalar.ps1</b> outra vez e colar a chave <b>sk-ant-…</b>.</div></div>
+      <div class="row"><div class="sym">Teste à API (internet)</div><div class="fix">Chave errada ou sem ligação. Confirmar a chave e a internet.</div></div>
+    </div>
+  </div>
+
+  <footer>
+    Se um PC der uma falha que não percebes, envia o ficheiro de log em <code>C:\cartorio-automacao\logs\</code> ao Rui.
+  </footer>
+</div>
+
+<script>
+  // Botoes de copiar
+  document.querySelectorAll(".cmd").forEach(function (box) {
+    var top = box.querySelector(".cmd-top");
+    var code = box.querySelector("code");
+    if (!top || !code) return;
+    var btn = document.createElement("button");
+    btn.className = "copy";
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copiar</span>';
+    top.appendChild(btn);
+    btn.addEventListener("click", function () {
+      var texto = code.innerText.replace(/ /g, " ").trim();
+      navigator.clipboard.writeText(texto).then(function () {
+        btn.classList.add("ok");
+        btn.querySelector("span").textContent = "Copiado";
+        btn.querySelector("svg").innerHTML = '<path d="M20 6 9 17l-5-5"/>';
+        setTimeout(function () {
+          btn.classList.remove("ok");
+          btn.querySelector("span").textContent = "Copiar";
+          btn.querySelector("svg").innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>';
+        }, 1800);
+      });
+    });
+  });
+
+  // Marcar passos como feitos
+  document.querySelectorAll(".done-toggle").forEach(function (t) {
+    t.addEventListener("click", function () {
+      t.closest(".step").classList.toggle("done");
+    });
+  });
+</script>

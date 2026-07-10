@@ -28,7 +28,9 @@ import tempfile
 
 import streamlit as st
 
-from extrator import extrair_de_ficheiro
+from extrator import (
+    TIPOS_ATO, detetar_tipo_por_texto, extrair_texto, ler_documento,
+)
 from modelos import (
     Bem, CompraVenda, DUC, Doacao, EstadoCivil, Habilitacao,
     Outorgante, Partilha, RegimeBens, TipoSociedade,
@@ -376,7 +378,7 @@ def render_sidebar(obj, nome_ficheiro):
         # Botão simular nova extração
         if st.button("↺ Simular nova extração", use_container_width=True, key="reset_btn"):
             for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado",
-                      "robo_feitos", "robo_last_status"):
+                      "robo_feitos", "robo_last_status", "texto_escritura", "tipo_ato"):
                 st.session_state.pop(k, None)
             st.rerun()
 
@@ -953,13 +955,17 @@ def render_doacao(d):
 def render_habilitacao(h):
     tab_geral, = st.tabs(["Outorgantes"])
     with tab_geral:
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns([1, 1.4, 1])
         h.data_obito = _vazio_para_none(
             c1.text_input("Data de óbito (AAAA-MM-DD)", h.data_obito or "")
         )
-        h.com_testamento = c2.checkbox("Habilitação COM testamento", value=h.com_testamento)
+        h.assento_obito = _vazio_para_none(
+            c2.text_input("Assento de óbito", h.assento_obito or "",
+                          placeholder="Ex: 2783-4424-6741")
+        )
+        h.com_testamento = c3.checkbox("Com testamento", value=h.com_testamento)
         st.markdown("---")
-        st.markdown("**Autor da Herança (falecido/a)**")
+        st.markdown("**Autor da Herança (falecido/a)** — nome, óbito acima, naturalidade e morada")
         if h.autor_heranca is None:
             h.autor_heranca = Outorgante()
         card_outorgante("autor", 0, h.autor_heranca)
@@ -1065,8 +1071,17 @@ if obj is None:
             tmp.write(ficheiro.read())
             caminho_tmp = tmp.name
         try:
-            st.write("A chamar o modelo de linguagem...")
-            st.session_state.obj = extrair_de_ficheiro(caminho_tmp)
+            # Ler o texto UMA vez e detetar o tipo pelo CONTEUDO (o nome do
+            # temporario e' aleatorio, por isso nao serve para detetar o tipo).
+            texto = ler_documento(caminho_tmp)
+        finally:
+            os.unlink(caminho_tmp)
+        tipo = detetar_tipo_por_texto(texto)
+        try:
+            st.write(f"A extrair como **{dict(TIPOS_ATO)[tipo]}** (podes corrigir a seguir)...")
+            st.session_state.obj = extrair_texto(texto, tipo)
+            st.session_state.texto_escritura = texto
+            st.session_state.tipo_ato = tipo
             st.session_state.nome_ficheiro = ficheiro.name
             st.session_state.ts_extracao = (
                 "Extraído às " + datetime.datetime.now().strftime("%H:%M · %d %b %Y").lower()
@@ -1075,12 +1090,34 @@ if obj is None:
         except Exception as e:
             st.error(f"Erro na extração: {e}")
             st.stop()
-        finally:
-            os.unlink(caminho_tmp)
     st.rerun()
 
 # Estado: temos obj. Renderizar tudo.
 render_topbar(obj)
+
+# Corrigir o tipo de ato: a deteccao automatica pode falhar (ex: habilitacao com
+# nome de ficheiro sem "habilita"). A funcionaria confirma/corrige aqui e a app
+# reprocessa o mesmo texto com o tipo certo.
+_texto = st.session_state.get("texto_escritura")
+if _texto:
+    _tipos = [t[0] for t in TIPOS_ATO]
+    if st.session_state.get("tipo_ato") not in _tipos:
+        st.session_state.tipo_ato = "cv"
+    c_sel, _ = st.columns([1, 2])
+    _novo = c_sel.selectbox(
+        "Tipo de ato (corrige se estiver errado)", _tipos,
+        index=_tipos.index(st.session_state.tipo_ato),
+        format_func=lambda t: dict(TIPOS_ATO)[t],
+    )
+    if _novo != st.session_state.tipo_ato:
+        with st.spinner(f"A reprocessar como {dict(TIPOS_ATO)[_novo]}..."):
+            try:
+                st.session_state.obj = extrair_texto(_texto, _novo)
+                st.session_state.tipo_ato = _novo
+            except Exception as e:
+                st.error(f"Erro ao reprocessar: {e}")
+        st.rerun()
+
 render_warnings(obj)
 RENDERERS[type(obj)](obj)
 
@@ -1115,7 +1152,7 @@ st.markdown(f"""
 st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
 if st.button("← Carregar outra escritura", key="reset_main"):
     for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado", "robo_lancado",
-              "robo_feitos", "robo_last_status"):
+              "robo_feitos", "robo_last_status", "texto_escritura", "tipo_ato"):
         st.session_state.pop(k, None)
     st.rerun()
 
@@ -1184,6 +1221,8 @@ if st.session_state.get("robo_lancado"):
                 ph.info(f"⏳ {rotulo}: {msg}")
             elif estado == "empresa":
                 ph.warning(f"🏢 {rotulo}: {msg}")
+            elif estado == "manual":
+                ph.warning(f"✍️ {rotulo}: {msg}")
             elif estado:
                 ph.error(f"⚠️ {rotulo}: {msg}")
 
@@ -1270,7 +1309,7 @@ if st.session_state.get("robo_lancado"):
                         _ultimo_estado = _s.get("estado")
                         _ultimo_msg = _s.get("msg", "")
                         _mostrar_estado(status_ph, _rotulo_clicado, _ultimo_estado, _ultimo_msg)
-                        if _ultimo_estado in ("ok", "erro", "empresa"):
+                        if _ultimo_estado in ("ok", "erro", "empresa", "manual"):
                             break
                 if _ultimo_estado == "ok":
                     _feitos.add(_idx_clicado)  # marca ✅ na checklist
