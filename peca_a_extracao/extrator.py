@@ -122,6 +122,7 @@ Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
                   "capital_social": null, "tipo_sociedade": null, "conservatoria_registo": null,
                   "doc_identificacao": "...", "quota_parte": "1/1"}],
   "compradores": [ ... igual aos vendedores ... ],
+  "heranca": null,
   "bens": [{"designacao_fracao": "P", "descricao_predial": "...",
             "certidao_predial": "...", "artigo_matricial": "...",
             "data_inscricao_matriz": null,
@@ -199,6 +200,11 @@ Regras importantes:
   escritura o indicar, senao null) e data (data do documento, se indicada). O notario passou a
   incluir o valor do DUC, por isso EXTRAI o montante quando aparecer; se nao aparecer, null.
 - codigo_simn: deixa SEMPRE null (e interno do SIMN, nao vem da escritura).
+- heranca: se a escritura referir "NIF da Heranca - XXX" (ou "NIF heranca"), preenche aqui UM
+  outorgante que representa a heranca indivisa: nif = o numero (so digitos, sem espacos); nome =
+  "Heranca" seguido do nome do falecido se aparecer no texto (ex "Heranca de Carlota da Conceicao
+  Serra"); e_empresa = false (o sistema corrige sozinho pela regra do NIF). Deixa os campos
+  pessoais (estado_civil, naturalidade, morada, etc) null. Se NAO houver "NIF da Heranca", poe null.
 - Se nao encontrares um campo, poe null. NUNCA inventes.
 """
 

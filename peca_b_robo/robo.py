@@ -110,6 +110,12 @@ def listar_itens(campos: dict) -> list[tuple[str, str, dict]]:
         for i, o in enumerate(lista, 1):
             items.append((f"{tipo_singular} {i}", tipo_singular.lower(), o))
 
+    # Heranca indivisa (compra-venda com "NIF da Heranca"). Vai ao form singular ou
+    # coletivo conforme e_empresa (regra do NIF, ja definida na extracao). O
+    # _dispatch trata: e_empresa -> preencher_empresa, senao preencher_outorgante.
+    if campos.get("heranca"):
+        items.append(("Heranca", "heranca", campos["heranca"]))
+
     # Habilitacao: UM ou VARIOS obitos. Cada obito = o falecido (autor da heranca,
     # com a SUA data/assento injectados) + os herdeiros DELE. No SIMN preenche-se um
     # de cada vez, por isso ficam todos na lista, na ordem: autor, herdeiros, autor...

@@ -914,6 +914,12 @@ def render_cv(cv):
         secao_outorgantes("Vendedores", cv.vendedores, "vend")
         st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
         secao_outorgantes("Compradores", cv.compradores, "comp")
+        if cv.heranca is not None:
+            st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+            forma = "COLETIVO" if cv.heranca.e_empresa else "singular"
+            st.markdown(f"**Herança indivisa** — NIF {cv.heranca.nif or '?'}, "
+                        f"entra no formulário **{forma}** (regra do NIF)")
+            card_outorgante("heranca", 0, cv.heranca)
     with tab_bem:
         secao_bens(cv.bens)
     with tab_val:
@@ -1232,6 +1238,12 @@ if st.session_state.get("robo_lancado"):
             for i, o in enumerate(lista, 1):
                 emp = "🏢 EMPRESA · " if getattr(o, "e_empresa", False) else ""
                 items.append((f"{tipo} {i}", f"{emp}{o.nome or '?'} · NIF {o.nif or '?'}"))
+
+        # Heranca indivisa (CV com "NIF da Heranca"). MESMA ordem do robo.py.
+        her = getattr(cv_obj, "heranca", None)
+        if her and her.nif:
+            forma = "🏢 COLETIVO · " if her.e_empresa else "👤 singular · "
+            items.append(("Herança", f"{forma}{her.nome or '?'} · NIF {her.nif}"))
 
         # Habilitacao: obitos (autor + herdeiros de cada). MESMA ordem do robo.py.
         obitos = getattr(cv_obj, "obitos", None)

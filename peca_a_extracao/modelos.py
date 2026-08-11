@@ -15,7 +15,15 @@ import unicodedata
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+def _heranca_e_coletivo(nif) -> bool:
+    """Regra do notario (2026-08-11) para o NIF de uma heranca indivisa: se for
+    >= 751000000 entra no formulario COLETIVO (Outorgante Colectivo); abaixo disso
+    (ex 7500xxxxx / 747xxxxxx) entra no SINGULAR. e' so o formulario que muda."""
+    digs = "".join(c for c in str(nif or "") if c.isdigit())
+    return len(digs) == 9 and int(digs) >= 751_000_000
 
 
 class _Base(BaseModel):
@@ -293,6 +301,11 @@ class CompraVenda(_Base):
 
     vendedores: list[Outorgante] = Field(default_factory=list)
     compradores: list[Outorgante] = Field(default_factory=list)
+    heranca: Optional[Outorgante] = Field(
+        None,
+        description="Heranca indivisa como outorgante, quando a escritura refere 'NIF da "
+                    "Heranca'. e_empresa e' definido pela regra do NIF (>=751000000 -> coletivo).",
+    )
     bens: list[Bem] = Field(default_factory=list)
 
     objeto: Optional[str] = Field(None, description="Texto do campo Objeto no SIMN.")
@@ -307,6 +320,13 @@ class CompraVenda(_Base):
     verbete_numero: Optional[str] = None
 
     avisos: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _regra_heranca(self):
+        """Define e_empresa da heranca pela regra do NIF (nao confiar no LLM)."""
+        if self.heranca and self.heranca.nif:
+            self.heranca.e_empresa = _heranca_e_coletivo(self.heranca.nif)
+        return self
 
     def validar_e_avisar(self) -> list[str]:
         """Gera avisos para a funcionaria rever antes do RUN. Nunca bloqueia.
@@ -340,6 +360,12 @@ class CompraVenda(_Base):
                     avisos.append(f"{lado} sem NIF: {o.nome or 'desconhecido'}.")
                 elif not (o.nif.isdigit() and len(o.nif) == 9):
                     avisos.append(f"{lado} com NIF mal formatado ({o.nif}), confirmar.")
+
+        if self.heranca and self.heranca.nif:
+            forma = "COLETIVO" if self.heranca.e_empresa else "singular"
+            avisos.append(
+                f"Herança detetada (NIF {self.heranca.nif}): entra no form {forma}."
+            )
 
         if not self.bens:
             avisos.append("Nenhum bem detetado.")
