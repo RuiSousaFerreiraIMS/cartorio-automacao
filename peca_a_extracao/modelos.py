@@ -328,6 +328,23 @@ class CompraVenda(_Base):
             self.heranca.e_empresa = _heranca_e_coletivo(self.heranca.nif)
         return self
 
+    def herdar_heranca_do_primeiro(self) -> None:
+        """Regra do notario (2026-08-11): a naturalidade, morada e estado civil da
+        heranca (ou a SEDE, no form coletivo) sao SEMPRE as do PRIMEIRO outorgante da
+        escritura, mesmo que o texto nao de esses dados do falecido. Chamar UMA vez
+        apos a extracao (nao num validator, senao sobrescreveria edicoes da funcionaria).
+        """
+        if not (self.heranca and self.heranca.nif):
+            return
+        origem = (self.vendedores or self.compradores or [None])[0]
+        if origem is None:
+            return
+        for campo in ("estado_civil", "regime_bens", "nacionalidade",
+                      "naturalidade_concelho", "naturalidade_freguesia",
+                      "morada", "morada_localidade", "morada_concelho",
+                      "morada_freguesia", "codigo_postal"):
+            setattr(self.heranca, campo, getattr(origem, campo))
+
     def validar_e_avisar(self) -> list[str]:
         """Gera avisos para a funcionaria rever antes do RUN. Nunca bloqueia.
 

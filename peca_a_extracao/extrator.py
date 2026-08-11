@@ -359,6 +359,7 @@ def extrair_compra_venda(texto: str, modelo: str | None = None) -> CompraVenda:
     dados = _chamar_llm(texto, PROMPT_SISTEMA, modelo)
     _log("A validar com schema Pydantic...")
     cv = CompraVenda(**dados)
+    cv.herdar_heranca_do_primeiro()  # heranca: naturalidade/morada/estado civil do 1o outorgante
     cv.avisos = cv.validar_e_avisar()
     _log(f"  validacao OK. {len(cv.avisos)} aviso(s) gerado(s).")
     return cv
