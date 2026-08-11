@@ -35,6 +35,7 @@ from modelos import (
     Bem, CompraVenda, Convencao, DUC, Doacao, EstadoCivil, Habilitacao,
     Justificacao, Obito, Outorgante, Partilha, RegimeBens, Testamento, TipoSociedade,
 )
+from boletim import gerar_boletim_pdf
 
 # ─────────────────────────────────────────────────────────────
 # Configuração
@@ -1165,7 +1166,14 @@ def render_testamento(t):
         st.markdown("**Pré-visualização do boletim (Modelo 54)**")
         for rot, val in _boletim_dados(t):
             st.markdown(f"- **{rot}:** {val or '—'}")
-        st.caption("A impressão do boletim fica para o próximo passo (a confirmar o método com o Rui).")
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        st.download_button(
+            "🖨️ Gerar boletim (PDF) para imprimir", data=gerar_boletim_pdf(t),
+            file_name="boletim_testamento.pdf", mime="application/pdf",
+            use_container_width=True,
+        )
+        st.caption("Abre o PDF e imprime na bandeja do formulário, a **100% (tamanho real)**. "
+                   "Se sair desalinhado, diz o desvio ao Rui (ex '3mm à direita') que se acerta.")
 
 
 RENDERERS = {

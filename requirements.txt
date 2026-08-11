@@ -16,3 +16,4 @@ opencv-python  # necessario para pyautogui.locateOnScreen(confidence=...)
 #  - LibreOffice (recomendado): instalar a app, traz o 'soffice'
 #  - Git for Windows: traz antiword embutido
 # Não são pacotes pip; instalam-se ao nível do sistema.
+reportlab>=4.0
