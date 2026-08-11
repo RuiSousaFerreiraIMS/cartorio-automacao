@@ -418,6 +418,11 @@ class CompraVenda(_Acto):
             avisos.append(
                 f"Herança detetada (NIF {self.heranca.nif}): entra no form {forma}."
             )
+            if self.vendedores:
+                avisos.append(
+                    "Se a Herança é o vendedor, os vendedores (herdeiros) podem entrar como "
+                    "EXTERNOS (marca-os no painel de Externos)."
+                )
 
         if not self.bens:
             avisos.append("Nenhum bem detetado.")

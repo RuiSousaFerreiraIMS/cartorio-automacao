@@ -164,6 +164,17 @@ Regras importantes:
       "Alcobaca"); senao null.
     * A SEDE da empresa vai nos MESMOS campos da morada: morada (rua+numero), morada_localidade,
       morada_concelho, morada_freguesia, codigo_postal.
+- REPRESENTACAO / EXTERNOS: quando alguem outorga EM NOME DE OUTRO (nao em nome proprio), o
+  REPRESENTADO e' a parte real (vai para vendedores/compradores) e o REPRESENTANTE entra como
+  EXTERNO (poe-lhe e_externo=true e a qualidade certa). Casos:
+  * "X, na qualidade de procurador de Y" -> Y para vendedores/compradores; X com e_externo=true,
+    qualidade="Procurador".
+  * "X, socio e gerente da sociedade EMPRESA" -> a EMPRESA e' a parte (e_empresa=true); X com
+    e_externo=true, qualidade="Gerente".
+  * Quem SO da consentimento (ex "o terceiro outorgante presta o seu consentimento a venda") ->
+    e_externo=true, qualidade="Consentimento".
+  Mete o externo no lado que faz sentido (normalmente junto do representado). Nos outros
+  outorgantes normais deixa e_externo=false (a funcionaria marca a mao se quiser).
 - NIF: remove espacos (ex "222 350 245" -> "222350245").
 - estado_civil: solteiro/casado/divorciado/viuvo/uniao_de_facto/desconhecido. OBRIGATORIO no
   SIMN, esforca-te sempre por o obter.
