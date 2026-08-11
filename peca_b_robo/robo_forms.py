@@ -507,15 +507,17 @@ def preencher_duc(duc: dict[str, Any]) -> str:
 # -----------------------------------------------------------------------------
 # Form dos OUTORGANTES EXTERNOS (grelha "Editar Outorgantes Externos")
 # -----------------------------------------------------------------------------
-# Posicoes das celulas da grelha de Outorgantes Externos (calibradas pelo Rui,
-# 2026-08-11, com calibrar_externos.py). (x, y) da 1a linha por coluna; as linhas
-# seguintes somam _EXT_ROW_H ao y. Como as colunas Data/Natureza/Qualidade so
-# editam com DUPLO-CLIQUE do rato, o robo clica cada celula. Se a janela abrir
-# noutra posicao/resolucao, recalibrar e atualizar estes numeros.
-_EXT_CELLS_ROW1 = [
-    ("nif", 555, 562), ("nome", 668, 564), ("data", 841, 561),
-    ("livro", 923, 562), ("folhas", 983, 562),
-    ("natureza", 1111, 561), ("qualidade", 1241, 559),
+# Grelha de Outorgantes Externos: OFFSETS RELATIVOS (dx, dy) de cada coluna em
+# relacao a' 1a celula (NIF da 1a linha). O ROBO NAO usa coordenadas fixas: le a
+# posicao do RATO no arranque e usa-a como ancora (=NIF da 1a linha). Assim a
+# funcionaria poe o rato onde quiser (a janela pode abrir em qualquer sitio) e o
+# robo preenche tudo relativo a esse ponto. As linhas seguintes somam _EXT_ROW_H
+# ao y. Os offsets vem da calibracao do Rio (2026-08-11): as colunas mantem o
+# mesmo espacamento na grelha, so muda o ponto de partida.
+_EXT_COL_OFFSETS = [
+    ("nif", 0, 0), ("nome", 113, 2), ("data", 286, -1),
+    ("livro", 368, 0), ("folhas", 428, 0),
+    ("natureza", 556, -1), ("qualidade", 686, -3),
 ]
 _EXT_ROW_H = 28
 
@@ -525,18 +527,21 @@ def preencher_externos(dados: dict[str, Any]) -> str:
 
     As celulas Data/Natureza/Qualidade so editam com duplo-clique (nao ha teclado que
     as abra), por isso o robo clica cada celula, escreve e confirma com Enter. As
-    posicoes vem calibradas (_EXT_CELLS_ROW1). Uma linha por externo; o y desce
-    _EXT_ROW_H por linha.
+    O ROBO ANCORA NO RATO: le pyautogui.position() no arranque e trata esse ponto
+    como a 1a celula (NIF da 1a linha). Todas as outras celulas sao esse ponto +
+    (dx, dy) de _EXT_COL_OFFSETS; cada linha desce _EXT_ROW_H. Assim a funcionaria
+    so tem de por o rato na 1a celula (durante a contagem) e o robo preenche dai.
 
     Pre-condicao: a funcionaria carrega "Adicionar" tantas vezes quantos os externos
-    (cria as linhas vazias) e deixa a janela a frente. `dados` = {"externos":[...],
-    "livro","folhas","data","natureza"}.
+    (cria as linhas vazias), deixa a janela a frente e POE O RATO na 1a celula (NIF
+    da 1a linha). `dados` = {"externos":[...],"livro","folhas","data","natureza"}.
 
     Colunas: NIF/Nome/Qualidade sao de cada externo; Data/Livro/Folhas/Natureza sao
     iguais para todos.
     """
     externos = dados.get("externos", [])
-    print(f"  A preencher {len(externos)} outorgante(s) externo(s) com o rato.")
+    anchor_x, anchor_y = pyautogui.position()   # onde a funcionaria pos o rato = NIF da 1a linha
+    print(f"  A preencher {len(externos)} externo(s). Ancora (rato) em ({anchor_x}, {anchor_y}).")
     comuns = {
         "livro": dados.get("livro", "") or "",
         "folhas": dados.get("folhas", "") or "",
@@ -550,11 +555,13 @@ def preencher_externos(dados: dict[str, Any]) -> str:
             "qualidade": ext.get("qualidade", ""), **comuns,
         }
         y_offset = i * _EXT_ROW_H
-        for col, x, y in _EXT_CELLS_ROW1:
+        for col, dx, dy in _EXT_COL_OFFSETS:
             v = (valores.get(col) or "").strip()
             if not v:
                 continue
-            pyautogui.doubleClick(x, y + y_offset)   # abre a celula para editar
+            x = anchor_x + dx
+            y = anchor_y + dy + y_offset
+            pyautogui.doubleClick(x, y)   # abre a celula para editar
             time.sleep(0.2)
             escrever_unicode(v)
             time.sleep(0.05)
