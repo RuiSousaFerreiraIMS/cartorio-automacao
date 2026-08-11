@@ -210,6 +210,16 @@ class Outorgante(_Base):
     )
     quota_parte: Optional[str] = Field(None, description="Ex: '1/1', '1/2'.")
 
+    # Outorgantes EXTERNOS: a funcionaria marca quem entra pelo form simples de
+    # "Outorgantes Externos" (grelha NIF/Nome/Data/Livro/Folhas/Natureza/Qualidade).
+    e_externo: bool = Field(
+        False, description="True se este outorgante entra como EXTERNO (form simples)."
+    )
+    qualidade: Optional[str] = Field(
+        None, description="Qualidade em que interveio (so externos): ex 'Procurador', "
+                          "'Consentimento', 'Cedente'. Dropdown de escrita no SIMN."
+    )
+
     @field_validator("estado_civil", mode="before")
     @classmethod
     def _val_estado_civil(cls, v):
@@ -306,7 +316,19 @@ class DUC(_Base):
     data: Optional[str] = Field(None, description="Data do DUC, ex '2026-06-22'.")
 
 
-class CompraVenda(_Base):
+class _Acto(_Base):
+    """Base dos ATOS (nao dos sub-modelos). Traz os campos comuns aos Outorgantes
+    Externos, que QUALQUER ato pode ter. Livro/Folhas/Natureza sao IGUAIS para todos
+    os externos da escritura (a funcionaria mete o Livro/Folhas uma vez); a Data vem
+    da data_escritura de cada ato; a Qualidade e' de cada externo (no Outorgante)."""
+    livro: Optional[str] = Field(None, description="Livro da escritura (ex '263A'). Externos.")
+    folhas: Optional[str] = Field(None, description="Folhas da escritura (ex '33'). Externos.")
+    natureza_acto: Optional[str] = Field(
+        None, description="Natureza do acto para os externos (dropdown de escrita no SIMN)."
+    )
+
+
+class CompraVenda(_Acto):
     """Schema de uma escritura de Compra-venda, mapeado ao SIMN."""
     mnemonica: str = Field("CV", description="Constante para compra-venda.")
 
@@ -430,7 +452,7 @@ def _avisos_outorgantes(lado: str, lista: list[Outorgante]) -> list[str]:
     return avisos
 
 
-class Doacao(_Base):
+class Doacao(_Acto):
     """Doacao: doador(es) transfere(m) gratuitamente bem(ns) a donatario(s)."""
     mnemonica: str = Field("DOAC", description="Mnemonica para doacao.")
     data_escritura: Optional[str] = None
@@ -478,7 +500,7 @@ class Obito(_Base):
     )
 
 
-class Habilitacao(_Base):
+class Habilitacao(_Acto):
     """
     Habilitacao Notarial: declaracao dos herdeiros de uma ou mais pessoas
     falecidas. Quando ha mais que um falecido o titulo vem no plural
@@ -521,7 +543,7 @@ class Habilitacao(_Base):
         return avisos
 
 
-class Partilha(_Base):
+class Partilha(_Acto):
     """
     Partilha (hereditaria ou por divorcio): divide bens entre os partilhantes.
     Pode envolver tornas (compensacoes monetarias entre partilhantes).
@@ -562,7 +584,7 @@ class Partilha(_Base):
         return avisos
 
 
-class Convencao(_Base):
+class Convencao(_Acto):
     """
     Convencao antenupcial: dois nubentes acordam o regime de bens do futuro
     casamento. Nao ha vendedor/comprador nem bem imovel, so os dois outorgantes e
@@ -593,7 +615,7 @@ class Convencao(_Base):
         return avisos
 
 
-class Justificacao(_Base):
+class Justificacao(_Acto):
     """
     Justificacao notarial (usucapiao): os justificantes declaram ser donos de um
     bem por usucapiao; os confirmantes (testemunhas) confirmam. Detetar TODOS os

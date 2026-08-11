@@ -504,6 +504,57 @@ def preencher_duc(duc: dict[str, Any]) -> str:
 
 
 # -----------------------------------------------------------------------------
+# Form dos OUTORGANTES EXTERNOS (grelha "Editar Outorgantes Externos")
+# -----------------------------------------------------------------------------
+def preencher_externos(dados: dict[str, Any]) -> str:
+    """Preenche a GRELHA de Outorgantes Externos, uma LINHA por externo, de seguida.
+
+    O cursor comeca na 1a celula (NIF) de uma linha nova; o SIMN encadeia as linhas
+    sozinho ao fim de cada uma (confirmado pelo Rui). Colunas da linha:
+       NIF -> Nome -> Data -> Livro -> Folhas -> Natureza -> Qualidade -> (proxima linha)
+    Livro/Folhas/Data/Natureza sao IGUAIS para todos (a funcionaria mete o Livro e
+    as Folhas uma vez); a Qualidade e' de cada externo. Natureza e Qualidade sao
+    dropdowns de ESCRITA (escrever -> Tab confirma absorvido -> Tab avanca).
+
+    `dados` = {"externos": [{nif,nome,qualidade}, ...], "livro","folhas","data","natureza"}.
+
+    PRIMEIRA VERSAO - a CALIBRAR no cartorio (a ordem/nº de Tabs por linha pode ter
+    de ser afinada, como aconteceu com o form do outorgante).
+    """
+    externos = dados.get("externos", [])
+    print(f"  A preencher {len(externos)} outorgante(s) externo(s).")
+    livro = dados.get("livro", "") or ""
+    folhas = dados.get("folhas", "") or ""
+    data = _data_simn(dados.get("data"))
+    natureza = dados.get("natureza") or ""
+
+    for i, ext in enumerate(externos, 1):
+        print(f"    externo {i}: {ext.get('nome','?')} ({ext.get('qualidade','?')})")
+        escrever(ext.get("nif", ""))
+        tab()                       # NIF -> Nome
+        escrever(ext.get("nome", ""))
+        tab()                       # Nome -> Data
+        escrever(data)
+        tab()                       # Data -> Livro
+        escrever(livro)
+        tab()                       # Livro -> Folhas
+        escrever(folhas)
+        tab()                       # Folhas -> Natureza
+        # Natureza (dropdown de escrita)
+        if natureza:
+            escrever_dropdown(natureza)
+            tab()                   # confirma (absorvido)
+        tab()                       # -> Qualidade
+        # Qualidade (dropdown de escrita)
+        if ext.get("qualidade"):
+            escrever_dropdown(ext["qualidade"])
+            tab()                   # confirma (absorvido)
+        tab()                       # -> proxima linha (NIF); o SIMN encadeia sozinho
+
+    return "preenchido"
+
+
+# -----------------------------------------------------------------------------
 # Form da RELAÇAO
 # -----------------------------------------------------------------------------
 def preencher_relacao(vendedor_nif: str, bem_id: str, comprador_nif: str,

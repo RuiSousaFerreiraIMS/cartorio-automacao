@@ -51,6 +51,7 @@ from robo_forms import (  # noqa: E402
     preencher_bem,
     preencher_duc,
     preencher_empresa,
+    preencher_externos,
     preencher_outorgante,
 )
 
@@ -63,6 +64,8 @@ def _dispatch(tipo: str, dados: dict | None = None):
         return preencher_bem, "Concelho (Localização Fiscal)"
     if tipo == "duc":
         return preencher_duc, "Número"
+    if tipo == "externos":
+        return preencher_externos, "NIF (1ª linha da lista de Externos)"
     if dados and dados.get("e_empresa"):
         return preencher_empresa, "Nº Contribuinte (NIPC)"
     return preencher_outorgante, "Nº Contribuinte"
@@ -107,8 +110,29 @@ def listar_itens(campos: dict) -> list[tuple[str, str, dict]]:
         ("Confirmante", campos.get("confirmantes", [])),    # justificacao (testemunhas)
     ]
     for tipo_singular, lista in mapeamento:
-        for i, o in enumerate(lista, 1):
-            items.append((f"{tipo_singular} {i}", tipo_singular.lower(), o))
+        n = 0
+        for o in lista:
+            if o.get("e_externo"):
+                continue  # externos vao para o item unico "Externos", nao individual
+            n += 1
+            items.append((f"{tipo_singular} {n}", tipo_singular.lower(), o))
+
+    # Outorgantes EXTERNOS: TODOS os que a funcionaria marcou como externo, de
+    # qualquer lista, num SO item (o robo preenche a grelha linha a linha). Livro,
+    # Folhas, Data e Natureza sao iguais para todos (vem ao nivel da escritura).
+    externos = []
+    for _, lista in mapeamento:
+        for o in lista:
+            if o.get("e_externo"):
+                externos.append(o)
+    if externos:
+        items.append((f"Externos ({len(externos)})", "externos", {
+            "externos": externos,
+            "livro": campos.get("livro"),
+            "folhas": campos.get("folhas"),
+            "data": campos.get("data_escritura"),
+            "natureza": campos.get("natureza_acto"),
+        }))
 
     # Heranca indivisa (compra-venda com "NIF da Heranca"). Vai ao form singular ou
     # coletivo conforme e_empresa (regra do NIF, ja definida na extracao). O
