@@ -528,28 +528,25 @@ def preencher_externos(dados: dict[str, Any]) -> str:
     data = _data_simn(dados.get("data"))
     natureza = dados.get("natureza") or ""
 
+    # METODO (Rui, 2026-08-11): a funcionaria clica "Adicionar" (cria a 1a linha) e
+    # poe o cursor na 1a celula (NIF). Dai o robo enche celula a celula EXATAMENTE
+    # como o calibrador (que funcionou): escrever + UM Tab por celula. NADA de tabs
+    # duplos nem escrever_dropdown (era isso que desalinhava tudo). O Tab a seguir a
+    # ultima celula encadeia a linha seguinte sozinho.
     for i, ext in enumerate(externos, 1):
         print(f"    externo {i}: {ext.get('nome','?')} ({ext.get('qualidade','?')})")
-        escrever(ext.get("nif", ""))
-        tab()                       # NIF -> Nome
-        escrever(ext.get("nome", ""))
-        tab()                       # Nome -> Data
-        escrever(data)
-        tab()                       # Data -> Livro
-        escrever(livro)
-        tab()                       # Livro -> Folhas
-        escrever(folhas)
-        tab()                       # Folhas -> Natureza
-        # Natureza (dropdown de escrita)
-        if natureza:
-            escrever_dropdown(natureza)
-            tab()                   # confirma (absorvido)
-        tab()                       # -> Qualidade
-        # Qualidade (dropdown de escrita)
-        if ext.get("qualidade"):
-            escrever_dropdown(ext["qualidade"])
-            tab()                   # confirma (absorvido)
-        tab()                       # -> proxima linha (NIF); o SIMN encadeia sozinho
+        celulas = [
+            ext.get("nif", ""),        # NIF
+            ext.get("nome", ""),       # Nome
+            data,                      # Data
+            livro,                     # Livro
+            folhas,                    # Folhas
+            natureza,                  # Natureza do acto
+            ext.get("qualidade", ""),  # Qualidade em que interveio
+        ]
+        for valor in celulas:
+            escrever(valor or "")
+            tab()   # UM Tab por celula (igual ao calibrador). O ultimo encadeia a linha.
 
     return "preenchido"
 
