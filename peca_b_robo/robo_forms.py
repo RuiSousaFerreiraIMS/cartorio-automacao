@@ -259,13 +259,9 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
         if rb_idx is not None:
             dropdown_por_setas(rb_idx + 2)  # +2 igual ao Estado Civil (1a seta so abre)
             tab()  # confirma
-        tab()      # avanca -> NIF Conjuge (logo a seguir ao Regime; NAO ha stops
-                   # fantasma aqui - o calibrador enganou-se, a observacao do notario
-                   # manda: Regime -> Tab confirma -> Tab -> NIF Conjuge).
-        # NIF Conjuge (texto)
-        if o.get("conjuge_de_nif"):
-            escrever(o["conjuge_de_nif"])
-        # 23. Nome Conj.: deixar vazio, o SIMN puxa da base pelo NIF
+        # NIF e Nome do Conjuge: NAO preencher (regra do notario, 2026-08-11). Fica
+        # tudo para a funcionaria; o robo so trata Estado Civil + Regime. Por isso
+        # nem avancamos para o campo do NIF Conjuge.
 
     return "reconhecido" if reconhecido else "preenchido"
 

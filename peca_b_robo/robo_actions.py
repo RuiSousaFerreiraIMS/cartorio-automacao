@@ -139,21 +139,26 @@ def _sem_acentos(texto: str) -> str:
 
 
 def escrever_dropdown(valor: str | None) -> None:
-    """Dropdown de ESCRITA (ex: Naturalidade Concelho/Freguesia): escreve as
-    letras do valor (sem acentos, minusculas) para o combo saltar para a opcao
-    por prefixo. NAO faz paste (nao seleciona num combo) nem Tab/Enter: quem
-    chama confirma com Tab e avanca com outro Tab (metodo do notario).
+    """Dropdown de ESCRITA (ex: Naturalidade/Morada Concelho/Freguesia, e o
+    Concelho/Freguesia do Bem): escreve as letras do valor (minusculas, COM
+    ACENTOS) para o combo saltar para a opcao por prefixo. NAO faz paste (nao
+    seleciona num combo) nem Tab/Enter: quem chama confirma com Tab e avanca com
+    outro Tab (metodo do notario).
+
+    COM ACENTOS (2026-08-11): a lista e' sensivel a acentos. Sem o acento,
+    "obidos" salta o "Obidos" e cai em "Odemira"; so "obidos" com o 'O' certo
+    acerta. Por isso usa-se escrever_unicode (o pyautogui.write nao faz acentos).
     """
     if not valor:
         return
-    v = _sem_acentos(str(valor)).strip().lower()
+    v = str(valor).strip().lower()  # acentos PRESERVADOS
     if v:
         # Deixar o campo ficar PRONTO antes de escrever. Sem isto, quando o dropdown
         # vem logo a seguir a Tabs rapidos (ex: Morada Concelho a seguir aos 3 Tabs
         # do Codigo Postal), as primeiras letras PERDEM-SE: o campo fica vazio, nao
         # abre popup e o "Tab de confirmacao" passa a mover o foco -> derrapa tudo.
         time.sleep(0.35)
-        pyautogui.write(v, interval=0.06)
+        escrever_unicode(v, intervalo=0.06)
         time.sleep(0.35)  # deixar o popup do autocomplete abrir e estabilizar
 
 
