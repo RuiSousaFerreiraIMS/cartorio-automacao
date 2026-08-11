@@ -65,7 +65,8 @@ def _dispatch(tipo: str, dados: dict | None = None):
     if tipo == "duc":
         return preencher_duc, "Número"
     if tipo == "externos":
-        return preencher_externos, "NIF (1ª linha da lista de Externos)"
+        return preencher_externos, ("Adicionar (uma vez por externo) e deixa a janela "
+                                    "dos Outorgantes Externos a frente")
     if dados and dados.get("e_empresa"):
         return preencher_empresa, "Nº Contribuinte (NIPC)"
     return preencher_outorgante, "Nº Contribuinte"

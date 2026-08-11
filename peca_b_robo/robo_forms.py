@@ -507,51 +507,59 @@ def preencher_duc(duc: dict[str, Any]) -> str:
 # -----------------------------------------------------------------------------
 # Form dos OUTORGANTES EXTERNOS (grelha "Editar Outorgantes Externos")
 # -----------------------------------------------------------------------------
+# Posicoes das celulas da grelha de Outorgantes Externos (calibradas pelo Rui,
+# 2026-08-11, com calibrar_externos.py). (x, y) da 1a linha por coluna; as linhas
+# seguintes somam _EXT_ROW_H ao y. Como as colunas Data/Natureza/Qualidade so
+# editam com DUPLO-CLIQUE do rato, o robo clica cada celula. Se a janela abrir
+# noutra posicao/resolucao, recalibrar e atualizar estes numeros.
+_EXT_CELLS_ROW1 = [
+    ("nif", 555, 562), ("nome", 668, 564), ("data", 841, 561),
+    ("livro", 923, 562), ("folhas", 983, 562),
+    ("natureza", 1111, 561), ("qualidade", 1241, 559),
+]
+_EXT_ROW_H = 28
+
+
 def preencher_externos(dados: dict[str, Any]) -> str:
-    """Preenche a GRELHA de Outorgantes Externos, uma LINHA por externo, de seguida.
+    """Preenche a GRELHA de Outorgantes Externos com o RATO (duplo-clique + escrever).
 
-    O cursor comeca na 1a celula (NIF) de uma linha nova; o SIMN encadeia as linhas
-    sozinho ao fim de cada uma (confirmado pelo Rui). Colunas da linha:
-       NIF -> Nome -> Data -> Livro -> Folhas -> Natureza -> Qualidade -> (proxima linha)
-    Livro/Folhas/Data/Natureza sao IGUAIS para todos (a funcionaria mete o Livro e
-    as Folhas uma vez); a Qualidade e' de cada externo. Natureza e Qualidade sao
-    dropdowns de ESCRITA (escrever -> Tab confirma absorvido -> Tab avanca).
+    As celulas Data/Natureza/Qualidade so editam com duplo-clique (nao ha teclado que
+    as abra), por isso o robo clica cada celula, escreve e confirma com Enter. As
+    posicoes vem calibradas (_EXT_CELLS_ROW1). Uma linha por externo; o y desce
+    _EXT_ROW_H por linha.
 
-    `dados` = {"externos": [{nif,nome,qualidade}, ...], "livro","folhas","data","natureza"}.
+    Pre-condicao: a funcionaria carrega "Adicionar" tantas vezes quantos os externos
+    (cria as linhas vazias) e deixa a janela a frente. `dados` = {"externos":[...],
+    "livro","folhas","data","natureza"}.
 
-    PRIMEIRA VERSAO - a CALIBRAR no cartorio (a ordem/nº de Tabs por linha pode ter
-    de ser afinada, como aconteceu com o form do outorgante).
+    Colunas: NIF/Nome/Qualidade sao de cada externo; Data/Livro/Folhas/Natureza sao
+    iguais para todos.
     """
     externos = dados.get("externos", [])
-    print(f"  A preencher {len(externos)} outorgante(s) externo(s).")
-    livro = dados.get("livro", "") or ""
-    folhas = dados.get("folhas", "") or ""
-    data = _data_simn(dados.get("data"))
-    natureza = dados.get("natureza") or ""
-
-    # METODO da grelha (Rui, 2026-08-11): cada celula edita-se com TAB + ESPACO +
-    # escrever (o Espaco entra em modo de edicao; sem ele nao escreve). A funcionaria
-    # clica "Adicionar" e poe o cursor na 1a celula (NIF) da linha nova.
-    #  - Celulas de TEXTO que o robo enche: NIF, Nome, Data, Livro, Folhas.
-    #  - Natureza e Qualidade sao DROPDOWNS que NAO abrem com Tab+Espaco (so com o
-    #    rato); o robo salta-as e a funcionaria preenche essas duas colunas a mao.
-    # Depois de Folhas: 3 Tabs (Natureza, Qualidade, e wrap para a linha seguinte).
+    print(f"  A preencher {len(externos)} outorgante(s) externo(s) com o rato.")
+    comuns = {
+        "livro": dados.get("livro", "") or "",
+        "folhas": dados.get("folhas", "") or "",
+        "data": str(dados.get("data") or ""),   # AAAA-MM-DD (como a grelha mostra)
+        "natureza": dados.get("natureza") or "",
+    }
     for i, ext in enumerate(externos):
         print(f"    externo {i+1}: {ext.get('nome','?')} ({ext.get('qualidade','?')})")
-        valores = [ext.get("nif", ""), ext.get("nome", ""), data, livro, folhas]
-        for j, v in enumerate(valores):
-            if j == 0:
-                # 1a celula da linha (NIF). Na 1a linha o cursor ja la esta (a
-                # funcionaria clicou); nas linhas seguintes chegamos por wrap, sem
-                # edicao -> Espaco para entrar em edicao.
-                if i > 0:
-                    pyautogui.press("space")
-            else:
-                tab()
-                pyautogui.press("space")   # entra em modo de edicao na celula
-            escrever_unicode(v or "")
-        # Folhas -> Natureza -> Qualidade -> proxima linha (dropdowns saltados)
-        tab(); tab(); tab()
+        valores = {
+            "nif": ext.get("nif", ""), "nome": ext.get("nome", ""),
+            "qualidade": ext.get("qualidade", ""), **comuns,
+        }
+        y_offset = i * _EXT_ROW_H
+        for col, x, y in _EXT_CELLS_ROW1:
+            v = (valores.get(col) or "").strip()
+            if not v:
+                continue
+            pyautogui.doubleClick(x, y + y_offset)   # abre a celula para editar
+            time.sleep(0.2)
+            escrever_unicode(v)
+            time.sleep(0.05)
+            pyautogui.press("enter")                 # confirma / seleciona no dropdown
+            time.sleep(0.1)
 
     return "preenchido"
 
