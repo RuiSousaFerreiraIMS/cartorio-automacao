@@ -31,6 +31,31 @@ for /f "tokens=5" %%p in ('netstat -aon ^| findstr ":8501" ^| findstr LISTENING'
     taskkill /F /PID %%p >nul 2>nul
 )
 
+REM --- Auto-atualizar do GitHub (silencioso e a prova de falhas) ---------------
+REM Abrir a app passa a trazer sempre a ultima versao: a funcionaria NAO tem de
+REM correr o atualizar.bat a mao. GIT_TERMINAL_PROMPT=0 garante que, se o token
+REM expirou ou nao ha internet, o git FALHA JA (nao fica preso a pedir password
+REM numa consola escondida). Se falhar, abrimos a versao local que ja esta no PC
+REM e mostramos um popup (wscript, porque o 'msg' nao existe no Windows Home) para
+REM o problema nao passar despercebido.
+echo.
+echo  A verificar atualizacoes no GitHub...
+set GIT_TERMINAL_PROMPT=0
+git fetch origin --quiet
+if errorlevel 1 goto :sem_update
+git reset --hard origin/main --quiet
+if errorlevel 1 goto :sem_update
+REM Update OK: limpar cache do Python e confirmar dependencias.
+for /d /r %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d"
+python -m pip install -q -r requirements.txt
+echo  Atualizado.
+goto :fim_update
+:sem_update
+echo  (Sem atualizacao: a abrir a versao atual.)
+>"%TEMP%\_cartorio_upd.vbs" echo MsgBox "Nao consegui atualizar a app (pode ser falta de internet ou o acesso ao GitHub ter expirado). Vou abrir a versao que ja esta no PC. Se isto se repetir, avisa o Rui.",48,"Cartorio - atualizacao"
+start "" wscript "%TEMP%\_cartorio_upd.vbs"
+:fim_update
+
 REM --- Streamlit: saltar o prompt de email do 1o arranque ----------------------
 REM Sem este ficheiro, o Streamlit pergunta um email na consola no primeiro
 REM arranque e FICA PRESO a espera (a consola esta escondida pelo cartorio.vbs,
