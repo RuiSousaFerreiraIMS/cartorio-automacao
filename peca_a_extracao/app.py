@@ -33,7 +33,7 @@ from extrator import (
 )
 from modelos import (
     Bem, CompraVenda, Convencao, DUC, Doacao, EstadoCivil, Habilitacao,
-    Justificacao, Obito, Outorgante, Partilha, RegimeBens, TipoSociedade,
+    Justificacao, Obito, Outorgante, Partilha, RegimeBens, Testamento, TipoSociedade,
 )
 
 # ─────────────────────────────────────────────────────────────
@@ -267,7 +267,8 @@ def _data_curta(d):
 def _tipo_humano(mnemonica):
     return {"CV": "Compra-venda", "DOAC": "Doação",
             "HAB": "Habilitação Notarial", "PART": "Partilha",
-            "CONV": "Convenção Antenupcial", "JUST": "Justificação"}.get(mnemonica, mnemonica)
+            "CONV": "Convenção Antenupcial", "JUST": "Justificação",
+            "TEST": "Testamento"}.get(mnemonica, mnemonica)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1116,6 +1117,57 @@ def render_justificacao(j):
         secao_bens(j.bens)
 
 
+def _boletim_dados(t):
+    """Mapa testamento -> boletim Modelo 54 (para preview e, depois, impressao)."""
+    td = t.testador or Outorgante()
+    nome = (td.nome or "").strip()
+    partes = nome.split()
+    ult_apelido = partes[-1] if partes else ""
+    nome_prop = partes[0] if partes else ""
+    outros_apel = " ".join(partes[1:-1]) if len(partes) > 2 else ""
+    nat_pais = td.naturalidade_pais or "Portugal"
+    return [
+        ("Últ. apelido", ult_apelido),
+        ("Outros apelidos", outros_apel),
+        ("Nome próprio", nome_prop),
+        ("Estado civil", td.estado_civil.value.capitalize() if td.estado_civil else ""),
+        ("Data de nascimento", td.data_nascimento or ""),
+        ("Naturalidade — Freguesia", td.naturalidade_freguesia or ""),
+        ("Naturalidade — Concelho", td.naturalidade_concelho or ""),
+        ("Naturalidade — País", nat_pais),
+        ("Nacionalidade", td.nacionalidade or "Portuguesa"),
+        ("Residência — Freguesia", td.morada_freguesia or ""),
+        ("Residência — Concelho", td.morada_concelho or ""),
+        ("Nome do pai", td.nome_pai or ""),
+        ("Nome da mãe", td.nome_mae or ""),
+        ("Espécie do acto e data", f"{t.especie or 'Testamento público'} — {t.data_escritura or ''}"),
+        ("Cartório", "Cartório Notarial de Alcobaça"),
+        ("A cargo de", "Rui Sérgio Heleno Ferreira"),
+    ]
+
+
+def render_testamento(t):
+    tab_geral, = st.tabs(["Testamento / Boletim"])
+    with tab_geral:
+        t.especie = _vazio_para_none(st.text_input("Espécie do acto", t.especie or "Testamento público"))
+        st.markdown("**Testador**")
+        if t.testador is None:
+            t.testador = Outorgante()
+        card_outorgante("testador", 0, t.testador)
+        td = t.testador
+        st.markdown("**Dados do boletim (filiação e nascimento)**")
+        c1, c2, c3 = st.columns(3)
+        td.data_nascimento = _vazio_para_none(
+            c1.text_input("Data de nascimento (AAAA-MM-DD)", td.data_nascimento or "", key="t_nasc"))
+        td.nome_pai = _vazio_para_none(c2.text_input("Nome do pai", td.nome_pai or "", key="t_pai"))
+        td.nome_mae = _vazio_para_none(c3.text_input("Nome da mãe", td.nome_mae or "", key="t_mae"))
+        st.markdown("---")
+        st.markdown("**Pré-visualização do boletim (Modelo 54)**")
+        for rot, val in _boletim_dados(t):
+            st.markdown(f"- **{rot}:** {val or '—'}")
+        st.caption("A impressão do boletim fica para o próximo passo (a confirmar o método com o Rui).")
+
+
 RENDERERS = {
     CompraVenda: render_cv,
     Doacao: render_doacao,
@@ -1123,6 +1175,7 @@ RENDERERS = {
     Partilha: render_partilha,
     Convencao: render_convencao,
     Justificacao: render_justificacao,
+    Testamento: render_testamento,
 }
 
 

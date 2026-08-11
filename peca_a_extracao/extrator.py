@@ -23,7 +23,9 @@ import time
 from google import genai
 from google.genai import types
 
-from modelos import CompraVenda, Convencao, Doacao, Habilitacao, Justificacao, Partilha
+from modelos import (
+    CompraVenda, Convencao, Doacao, Habilitacao, Justificacao, Partilha, Testamento,
+)
 
 
 def _log(msg: str) -> None:
@@ -661,6 +663,55 @@ def extrair_justificacao(texto: str, modelo: str | None = None) -> Justificacao:
     return j
 
 
+PROMPT_TESTAMENTO = """Es um extrator de dados de TESTAMENTOS notariais portugueses.
+Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
+
+{
+  "mnemonica": "TEST",
+  "data_escritura": "AAAA-MM-DD",
+  "especie": "Testamento público",
+  "testador": {"nif": "...", "nome": "...", "estado_civil": "casado",
+               "naturalidade_concelho": "...", "naturalidade_freguesia": "...",
+               "naturalidade_pais": null, "nacionalidade": "...",
+               "morada": "...", "morada_localidade": "...", "morada_concelho": "...",
+               "morada_freguesia": "...", "morada_pais": null,
+               "data_nascimento": "AAAA-MM-DD", "nome_pai": "...", "nome_mae": "...",
+               "doc_identificacao": "..."},
+  "objeto": "...",
+  "avisos": []
+}
+
+Regras (o testamento serve para preencher o boletim do Registo de Testamentos, por
+isso os dados do testador tem de vir COMPLETOS):
+- testador: a pessoa que faz o testamento (o unico outorgante). Preenche TUDO o que o
+  texto der:
+  * nome completo, nif, estado_civil.
+  * naturalidade_concelho + naturalidade_freguesia ("natural da freguesia de X, concelho
+    de Y"); se natural de fora de Portugal, poe o pais em naturalidade_pais.
+  * morada / morada_localidade / morada_concelho / morada_freguesia (residencia); se mora
+    fora, morada_pais.
+  * data_nascimento: a data de nascimento do testador ("nascido no dia ... de ... de ..."
+    -> AAAA-MM-DD). E' pedida no boletim.
+  * nome_pai e nome_mae: a filiacao ("filho de FULANO e de BELTRANA") -> nome_pai=FULANO,
+    nome_mae=BELTRANA.
+  * nacionalidade: so se estrangeiro.
+- especie: "Testamento público" (ou o que o titulo disser).
+- objeto: resumo curto das disposicoes (ex "Lega a mulher o predio urbano...; na falta
+  dela, a filha X").
+- As TESTEMUNHAS do testamento NAO entram (nao vao ao boletim).
+- Se nao encontrares um campo, poe null. NUNCA inventes.
+"""
+
+
+def extrair_testamento(texto: str, modelo: str | None = None) -> Testamento:
+    dados = _chamar_llm(texto, PROMPT_TESTAMENTO, modelo)
+    _log("A validar com schema Testamento...")
+    t = Testamento(**dados)
+    t.avisos = t.validar_e_avisar()
+    _log(f"  validacao OK. {len(t.avisos)} aviso(s) gerado(s).")
+    return t
+
+
 import unicodedata as _ud
 
 
@@ -676,6 +727,7 @@ TIPOS_ATO = [
     ("partilha", "Partilha"),
     ("convencao", "Convenção Antenupcial"),
     ("justificacao", "Justificação"),
+    ("testamento", "Testamento"),
 ]
 
 
@@ -698,6 +750,8 @@ def detetar_tipo_por_texto(texto: str) -> str:
         return "convencao"
     if "justificacao" in titulo:
         return "justificacao"
+    if "testamento" in titulo:
+        return "testamento"
     if "habilitacao" in titulo or "habilita" in titulo:
         return "habilitacao"
     if "partilha" in titulo:
@@ -736,6 +790,7 @@ _DISPATCHERS = {
     "partilha": extrair_partilha,
     "convencao": extrair_convencao,
     "justificacao": extrair_justificacao,
+    "testamento": extrair_testamento,
 }
 
 

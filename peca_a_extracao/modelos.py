@@ -210,6 +210,13 @@ class Outorgante(_Base):
     )
     quota_parte: Optional[str] = Field(None, description="Ex: '1/1', '1/2'.")
 
+    # Campos usados no boletim de TESTAMENTO (Modelo 54). So aparecem no testamento.
+    data_nascimento: Optional[str] = Field(
+        None, description="Data de nascimento 'AAAA-MM-DD' (testamento: pedido no boletim)."
+    )
+    nome_pai: Optional[str] = Field(None, description="Nome do pai (filiacao; boletim testamento).")
+    nome_mae: Optional[str] = Field(None, description="Nome da mae (filiacao; boletim testamento).")
+
     # Outorgantes EXTERNOS: a funcionaria marca quem entra pelo form simples de
     # "Outorgantes Externos" (grelha NIF/Nome/Data/Livro/Folhas/Natureza/Qualidade).
     e_externo: bool = Field(
@@ -649,4 +656,40 @@ class Justificacao(_Acto):
             avisos.append("Nenhum confirmante (testemunha) detetado, confirmar.")
         if not self.bens:
             avisos.append("Nenhum bem detetado.")
+        return avisos
+
+
+class Testamento(_Acto):
+    """
+    Testamento: um so outorgante (o testador) faz as suas disposicoes de ultima
+    vontade. O objetivo desta app NAO e' o SIMN mas sim preencher o boletim de
+    participacao ao Registo Geral de Testamentos (Modelo 54) e imprimi-lo. Por isso
+    o testador tem de trazer TODOS os dados que o boletim pede: nome, filiacao
+    (pai/mae), data de nascimento, naturalidade (freg/conc/pais), nacionalidade,
+    estado civil, residencia (freg/conc).
+    """
+    mnemonica: str = Field("TEST", description="Mnemonica para testamento.")
+    data_escritura: Optional[str] = None
+    testador: Optional[Outorgante] = Field(None, description="Quem faz o testamento.")
+    especie: Optional[str] = Field(
+        "Testamento público", description="Especie do acto para o boletim (ex 'Testamento público')."
+    )
+    objeto: Optional[str] = Field(None, description="Resumo das disposicoes (legados, etc).")
+    avisos: list[str] = Field(default_factory=list)
+
+    def validar_e_avisar(self) -> list[str]:
+        avisos = []
+        t = self.testador
+        if t is None:
+            avisos.append("Testador nao detetado.")
+            return avisos
+        faltam = [nome for nome, val in (
+            ("data de nascimento", t.data_nascimento),
+            ("nome do pai", t.nome_pai),
+            ("nome da mae", t.nome_mae),
+            ("naturalidade", t.naturalidade_concelho or t.naturalidade_pais),
+            ("estado civil", t.estado_civil.value if t.estado_civil else None),
+        ) if not val]
+        if faltam:
+            avisos.append("Boletim: confirmar/adicionar " + ", ".join(faltam) + ".")
         return avisos
