@@ -454,6 +454,11 @@ Regras:
 - declarantes: quem comparece e declara perante o notario (a cabeca de casal e/ou testemunhas).
 - Outorgantes: naturalidade em naturalidade_concelho + naturalidade_freguesia (infere o concelho
   a partir da freguesia se preciso).
+- MORADA de CADA outorgante (falecido, herdeiros, declarantes): a morada vem toda junta (ex "Rua
+  da Boavista, n.o 17, Benedita, Alcobaca"). SEPARA SEMPRE: morada = rua + numero; morada_localidade
+  = o lugar/localidade; morada_concelho = o concelho; morada_freguesia = a freguesia. Se a freguesia
+  nao vier explicita mas a localidade a identificar, INFERE-A (ex "Benedita, Alcobaca" -> freguesia
+  Benedita, concelho Alcobaca). Concelho e Freguesia sao OBRIGATORIOS no SIMN, nao os deixes null.
 - Se nao encontrares, poe null. Nunca inventes.
 """
 
