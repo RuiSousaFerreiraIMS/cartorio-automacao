@@ -944,6 +944,14 @@ def _painel_externos(obj):
                 o.qualidade = _vazio_para_none(cc2.text_input(
                     "Qualidade", o.qualidade or papel, key=f"pext_qual_{la}_{i}",
                     label_visibility="collapsed", placeholder="Qualidade"))
+        # Botao de preencher AQUI mesmo (tudo no mesmo sitio). Preenche a grelha
+        # inteira de uma vez. Assinala uma flag que a seccao do Preencher executa.
+        n_marcados = sum(1 for _, _, o, _ in todos if getattr(o, "e_externo", False))
+        if n_marcados:
+            st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+            if st.button(f"▶ Preencher Externos ({n_marcados})", key="pext_preench",
+                         type="primary", use_container_width=True):
+                st.session_state["_pedir_preench_externos"] = True
 
 
 def render_cv(cv):
@@ -1367,6 +1375,14 @@ if st.session_state.get("robo_lancado"):
         # lancamos/pollamos (senao a lista desaparecia durante o preenchimento).
         _idx_clicado = None
         _rotulo_clicado = None
+        # Botao "Preencher Externos" do painel (fica junto aos externos): dispara o
+        # mesmo lançamento, apontando para o item "Externos" na lista.
+        if st.session_state.pop("_pedir_preench_externos", False):
+            for idx, (rotulo, subtitulo) in enumerate(itens_disponiveis):
+                if rotulo.startswith("Externos"):
+                    _idx_clicado = idx
+                    _rotulo_clicado = rotulo
+                    break
         for idx, (rotulo, subtitulo) in enumerate(itens_disponiveis):
             feito = idx in _feitos
             c1, c2 = st.columns([3, 1])
