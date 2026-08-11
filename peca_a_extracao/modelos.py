@@ -177,6 +177,12 @@ class Outorgante(_Base):
     naturalidade_freguesia: Optional[str] = Field(
         None, description="Freguesia de naturalidade."
     )
+    naturalidade_pais: Optional[str] = Field(
+        None,
+        description="Pais de naturalidade SO quando e' fora de Portugal (ex 'Bélgica'). "
+                    "Para naturais de Portugal fica null (o SIMN assume Portugal). Quando "
+                    "esta preenchido, o Concelho/Freguesia de naturalidade ficam vazios.",
+    )
     nacionalidade: Optional[str] = None
     morada: Optional[str] = None  # rua + numero (a parte "Morada" no SIMN)
     morada_localidade: Optional[str] = Field(
@@ -187,6 +193,13 @@ class Outorgante(_Base):
     )
     morada_freguesia: Optional[str] = Field(
         None, description="Freguesia da morada (dropdown no SIMN)."
+    )
+    morada_pais: Optional[str] = Field(
+        None,
+        description="Pais da morada SO quando a pessoa mora fora de Portugal (ex 'Bélgica'). "
+                    "Independente da naturalidade: um portugues pode morar fora. Para quem mora "
+                    "em Portugal fica null. Quando preenchido, o Concelho/Freguesia da morada "
+                    "ficam vazios.",
     )
     codigo_postal: Optional[str] = Field(
         None, description="Codigo postal 'NNNN-NNN'. Usado na sede da empresa; no form "

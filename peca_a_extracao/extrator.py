@@ -116,9 +116,10 @@ Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
   "vendedores": [{"nif": "...", "nome": "...", "e_empresa": false,
                   "estado_civil": "casado", "regime_bens": "comunhao_de_adquiridos",
                   "conjuge_de_nif": "...", "naturalidade_concelho": "...",
-                  "naturalidade_freguesia": "...", "nacionalidade": "...",
+                  "naturalidade_freguesia": "...", "naturalidade_pais": null,
+                  "nacionalidade": "...",
                   "morada": "...", "morada_localidade": "...", "morada_concelho": "...",
-                  "morada_freguesia": "...", "codigo_postal": "...",
+                  "morada_freguesia": "...", "morada_pais": null, "codigo_postal": "...",
                   "capital_social": null, "tipo_sociedade": null, "conservatoria_registo": null,
                   "doc_identificacao": "...", "quota_parte": "1/1"}],
   "compradores": [ ... igual aos vendedores ... ],
@@ -171,11 +172,20 @@ Regras importantes:
   concelho de Y" (ou so "natural de X"). Preenche os DOIS. Se so vier a freguesia (ex "natural
   de Turquel"), INFERE o concelho a que pertence (Turquel -> Alcobaca). Se so vier o concelho,
   poe so o concelho. NUNCA metas a freguesia no campo do concelho. E OBRIGATORIO no SIMN.
+- naturalidade_pais: SO quando a pessoa e' natural de FORA de Portugal (ex "natural de Franca",
+  "natural e de nacionalidade belga"). Nesse caso poe aqui o PAIS (ex "França", "Bélgica") e deixa
+  naturalidade_concelho E naturalidade_freguesia a NULL. Para naturais de Portugal, deixa
+  naturalidade_pais null.
 - morada / morada_localidade / morada_concelho / morada_freguesia: a morada vem toda junta
   (ex "Largo da Escola, n.o 25, Vale de Maceira, Alfeizerao, Alcobaca"). SEPARA: morada = rua +
   numero ("Largo da Escola, n.o 25"); morada_localidade = o lugar/localidade ("Vale de Maceira");
   morada_concelho = o concelho ("Alcobaca"); morada_freguesia = a freguesia ("Alfeizerao"). Infere
   o concelho a partir da freguesia se preciso. Localidade/Concelho/Freguesia OBRIGATORIOS no SIMN.
+- morada_pais: SO quando a pessoa MORA fora de Portugal (ex "residente em Alsembergsteenweg 1027,
+  1652 Beersel, Belgica"). Nesse caso poe aqui o PAIS (ex "Bélgica") e deixa morada_concelho e
+  morada_freguesia a NULL (a rua fica na morada, a localidade estrangeira em morada_localidade).
+  DECIDE pela MORADA, nao pela nacionalidade: um PORTUGUES pode morar fora (naturalidade em
+  Portugal, mas morada_pais preenchido). Para quem mora em Portugal, deixa morada_pais null.
 - descricao_predial: o NUMERO com que o predio/fracao esta descrito na Conservatoria. Vem quase
   sempre POR EXTENSO ("descrito na Conservatoria... com o numero seis mil duzentos e setenta e
   um" = "6271"). CONVERTE para digitos. Se a escritura disser que o predio e OMISSO/nao descrito,
@@ -460,6 +470,10 @@ Regras:
   = o lugar/localidade; morada_concelho = o concelho; morada_freguesia = a freguesia. Se a freguesia
   nao vier explicita mas a localidade a identificar, INFERE-A (ex "Benedita, Alcobaca" -> freguesia
   Benedita, concelho Alcobaca). Concelho e Freguesia sao OBRIGATORIOS no SIMN, nao os deixes null.
+- PAIS (naturalidade_pais / morada_pais): SO quando e' fora de Portugal. Se um outorgante for
+  natural de fora (ex "natural de França"), poe o pais em naturalidade_pais e deixa
+  naturalidade_concelho/freguesia null. Se morar fora, poe em morada_pais e deixa
+  morada_concelho/freguesia null. Naturalidade e morada sao independentes. Portugueses: null nos dois.
 - Se nao encontrares, poe null. Nunca inventes.
 """
 
@@ -536,10 +550,12 @@ Regras:
   pessoais do texto: nif, nome, estado_civil (normalmente "solteiro"), naturalidade_concelho,
   naturalidade_freguesia, nacionalidade, morada, morada_localidade, morada_concelho,
   morada_freguesia, doc_identificacao.
-- ESTRANGEIRO: se um nubente for de nacionalidade estrangeira, preenche nacionalidade (ex
-  "francesa") e a naturalidade com o PAIS (ex naturalidade_concelho = "Franca"), MAS a morada
-  pode ser em Portugal (mora ca): nesse caso morada_concelho/morada_freguesia sao portugueses.
-  Naturalidade e morada podem estar em paises diferentes, nao os confundas.
+- ESTRANGEIRO: se um nubente for natural de fora de Portugal, preenche nacionalidade (ex
+  "francesa") e poe o PAIS em naturalidade_pais (ex "França"), deixando naturalidade_concelho e
+  naturalidade_freguesia a null. A MORADA e' tratada em separado: se mora em Portugal, preenche
+  morada_concelho/morada_freguesia (portugueses) e deixa morada_pais null; se mora fora, poe o
+  pais em morada_pais e deixa morada_concelho/freguesia null. Naturalidade e morada podem estar
+  em paises diferentes, nao os confundas.
 - regime_convencionado: o regime de bens que acordam para o casamento: "comunhao_de_adquiridos",
   "comunhao_geral" ou "separacao_de_bens" (ou o texto tal e qual se for atipico).
 - NIF: remove espacos. Se nao encontrares um campo, poe null. NUNCA inventes.

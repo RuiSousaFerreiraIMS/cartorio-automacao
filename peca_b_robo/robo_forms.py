@@ -117,21 +117,28 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     """
     print(f"  A preencher outorgante: {o.get('nome', '?')} (NIF {o.get('nif', '?')})")
 
-    # ESTRANGEIRO (Rui, 2026-07-10). Deteta-se pela `nacionalidade` estar preenchida
-    # (regra do notario: nacionalidade so se poe a estrangeiros). Nesse caso:
-    #  - Concelho e Freguesia (naturalidade E morada) ficam VAZIOS: os campos
-    #    continuam a ser paragens de Tab (Tabs iguais ao portugues), mas NUNCA se
-    #    escreve neles, mesmo que a extracao os tenha posto (ex "Montana").
-    #  - So o Pais e' que se preenche (escrever a 1a palavra; combo de selecao).
-    # O pais nem sempre vem no mesmo campo: ora em `naturalidade` (ex "Estados
-    # Unidos da America"), ora a extracao mete-o em `naturalidade_concelho` (ex
-    # "Belgica"). Aceitamos os dois. Na morada raramente vem o pais, por isso
-    # usamos o mesmo pais para naturalidade e morada (no estrangeiro coincidem).
-    estrangeiro = bool(o.get("nacionalidade"))
-    pais_estrangeiro = (o.get("naturalidade") or o.get("naturalidade_concelho")) if estrangeiro else None
-    if estrangeiro:
-        print(f"  -> Estrangeiro (nacionalidade={o.get('nacionalidade')!r}, "
-              f"pais={pais_estrangeiro!r}): salta Concelho/Freguesia, so escreve o Pais.")
+    # PAIS por BLOCO (Rui, 2026-08-11): a NATURALIDADE e a MORADA podem estar em
+    # paises DIFERENTES (ex: portugues a morar fora -> naturalidade PT, morada na
+    # Belgica; ou estrangeiro a morar em PT). Tratamos cada bloco pelo SEU pais:
+    #  - Se o bloco e' estrangeiro (tem pais), Concelho e Freguesia desse bloco
+    #    ficam VAZIOS (continuam a ser paragens de Tab, mas nunca se escreve neles)
+    #    e escreve-se o Pais (combo de selecao, 1a palavra, com acentos).
+    #  - Se e' portugues, escreve-se Concelho/Freguesia e o Pais fica Portugal.
+    # Fonte: os campos naturalidade_pais / morada_pais (a extracao poe-nos quando o
+    # sitio e' fora de Portugal). Fallback para dados antigos: se nao houver esses
+    # campos mas houver `nacionalidade`, usa o pais que ficou em naturalidade /
+    # naturalidade_concelho (e assume a morada no mesmo pais, por falta de melhor).
+    nat_pais = o.get("naturalidade_pais")
+    mor_pais = o.get("morada_pais")
+    if not nat_pais and o.get("nacionalidade"):
+        nat_pais = o.get("naturalidade") or o.get("naturalidade_concelho")
+        if not mor_pais:
+            mor_pais = nat_pais
+    nat_estrangeira = bool(nat_pais)
+    mor_estrangeira = bool(mor_pais)
+    if nat_estrangeira or mor_estrangeira:
+        print(f"  -> Naturalidade pais={nat_pais!r} | Morada pais={mor_pais!r} "
+              "(bloco estrangeiro salta Concelho/Freguesia e escreve o Pais).")
 
     # 0. NIF (texto)
     escrever(o.get("nif", ""))
@@ -170,12 +177,12 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # ESTRANGEIRO: NUNCA escrever concelho, mesmo que a extracao o tenha posto (ex
     # parseou "Montana" como concelho). So passar por lá com o Tab (o campo continua
     # a ser paragem; os Tabs sao os MESMOS que num portugues, so nao se escreve).
-    if not estrangeiro and o.get("naturalidade_concelho"):
+    if not nat_estrangeira and o.get("naturalidade_concelho"):
         escrever_dropdown(o["naturalidade_concelho"])
         tab()  # confirma
     tab()      # avanca -> Freguesia
-    # 6. Naturalidade Freguesia (dropdown de ESCRITA). Idem: NUNCA no estrangeiro.
-    if not estrangeiro and o.get("naturalidade_freguesia"):
+    # 6. Naturalidade Freguesia (dropdown de ESCRITA). Idem: NUNCA se estrangeira.
+    if not nat_estrangeira and o.get("naturalidade_freguesia"):
         escrever_dropdown(o["naturalidade_freguesia"])
         tab()  # confirma
     tab()      # avanca -> Pais
@@ -183,8 +190,8 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # avancar. ESTRANGEIRO: escrever SO a 1a palavra do pais (a naturalidade dele E
     # o pais, ex "Estados Unidos da America" -> "estados"). NAO leva Tab de
     # confirmacao: os Tabs ficam IGUAIS ao portugues, so a selecao muda inline.
-    if estrangeiro and pais_estrangeiro:
-        selecionar_pais_dropdown(pais_estrangeiro)
+    if nat_estrangeira and nat_pais:
+        selecionar_pais_dropdown(nat_pais)
     tab()      # -> stop fantasma
     # 8. STOP FANTASMA (controlo invisivel entre a Naturalidade e a Morada)
     tab()      # -> Morada
@@ -205,12 +212,12 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # 14. Morada Concelho (dropdown de ESCRITA: escrever, Tab confirma, Tab avanca).
     # ESTRANGEIRO: NUNCA escrever, mesmo que a extracao tenha posto algo (ex
     # "Montana"). So passar por lá com o Tab (mora fora, nao ha concelho portugues).
-    if not estrangeiro and o.get("morada_concelho"):
+    if not mor_estrangeira and o.get("morada_concelho"):
         escrever_dropdown(o["morada_concelho"])
         tab()  # confirma
     tab()      # avanca -> Morada Freguesia
-    # 15. Morada Freguesia (dropdown de ESCRITA). Idem: NUNCA no estrangeiro.
-    if not estrangeiro and o.get("morada_freguesia"):
+    # 15. Morada Freguesia (dropdown de ESCRITA). Idem: NUNCA se a morada e' fora.
+    if not mor_estrangeira and o.get("morada_freguesia"):
         escrever_dropdown(o["morada_freguesia"])
         tab()  # confirma
     tab()      # avanca -> Morada Pais
@@ -223,8 +230,8 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # ESTRANGEIRO: escrever SO a 1a palavra do pais de residencia. Usamos o mesmo
     # pais da naturalidade (no estrangeiro coincidem quase sempre; a funcionaria
     # corrige o caso raro). Sem Tab de confirmacao (Tabs iguais ao portugues).
-    if estrangeiro and pais_estrangeiro:
-        selecionar_pais_dropdown(pais_estrangeiro)
+    if mor_estrangeira and mor_pais:
+        selecionar_pais_dropdown(mor_pais)
     tab()      # -> stop fantasma
     # 17. STOP FANTASMA (entre Morada Pais e Estado Civil)
     tab()      # -> Estado Civil
@@ -481,9 +488,12 @@ def preencher_duc(duc: dict[str, Any]) -> str:
 
     # 0. Numero (texto)
     escrever(duc.get("numero", ""))
-    tab()       # -> Facto IMT
+    tab()       # -> Fracao (campo logo a seguir ao Numero)
 
-    # 1. Facto IMT: saltar (funcionaria)
+    # 1. Fracao do IMT: a funcionaria pediu SEMPRE "1" (regra 2026-08-11). Escreve-se
+    # so nos DUC de IMT; nos de TGIS/IS salta-se (write vs skip = 1 Tab na mesma).
+    if str(duc.get("tipo", "")).upper() == "IMT":
+        escrever("1")
     tab()       # -> Montante
 
     # 2. Montante (moeda). So preencher se a escritura ja trouxe o valor.
