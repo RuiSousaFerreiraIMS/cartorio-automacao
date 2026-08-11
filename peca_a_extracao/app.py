@@ -33,7 +33,7 @@ from extrator import (
 )
 from modelos import (
     Bem, CompraVenda, Convencao, DUC, Doacao, EstadoCivil, Habilitacao,
-    Justificacao, Outorgante, Partilha, RegimeBens, TipoSociedade,
+    Justificacao, Obito, Outorgante, Partilha, RegimeBens, TipoSociedade,
 )
 
 # ─────────────────────────────────────────────────────────────
@@ -954,25 +954,32 @@ def render_doacao(d):
 
 
 def render_habilitacao(h):
-    tab_geral, = st.tabs(["Outorgantes"])
+    if not h.obitos:
+        h.obitos = [Obito()]
+    titulo = f"Óbitos ({len(h.obitos)})" if h.plural else "Habilitação"
+    tab_geral, = st.tabs([titulo])
     with tab_geral:
-        c1, c2, c3 = st.columns([1, 1.4, 1])
-        h.data_obito = _vazio_para_none(
-            c1.text_input("Data de óbito (AAAA-MM-DD)", h.data_obito or "")
-        )
-        h.assento_obito = _vazio_para_none(
-            c2.text_input("Assento de óbito", h.assento_obito or "",
-                          placeholder="Ex: 2783-4424-6741")
-        )
-        h.com_testamento = c3.checkbox("Com testamento", value=h.com_testamento)
-        st.markdown("---")
-        st.markdown("**Autor da Herança (falecido/a)** — nome, óbito acima, naturalidade e morada")
-        if h.autor_heranca is None:
-            h.autor_heranca = Outorgante()
-        card_outorgante("autor", 0, h.autor_heranca)
-        st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
-        secao_outorgantes("Herdeiros", h.herdeiros, "herd")
-        st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+        for k, ob in enumerate(h.obitos):
+            if h.plural:
+                st.markdown(f"#### Óbito {k + 1}")
+            c1, c2, c3 = st.columns([1, 1.4, 1])
+            ob.data_obito = _vazio_para_none(
+                c1.text_input("Data de óbito (AAAA-MM-DD)", ob.data_obito or "",
+                              key=f"ob_data_{k}")
+            )
+            ob.assento_obito = _vazio_para_none(
+                c2.text_input("Assento de óbito", ob.assento_obito or "",
+                              key=f"ob_ass_{k}", placeholder="Ex: 2783-4424-6741")
+            )
+            ob.com_testamento = c3.checkbox("Com testamento", value=ob.com_testamento,
+                                            key=f"ob_test_{k}")
+            st.markdown("**Autor da Herança (falecido/a)** — nome, naturalidade e morada")
+            if ob.autor_heranca is None:
+                ob.autor_heranca = Outorgante()
+            card_outorgante(f"autor_{k}", 0, ob.autor_heranca)
+            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+            secao_outorgantes("Herdeiros", ob.herdeiros, f"herd_{k}")
+            st.markdown("---")
         secao_outorgantes("Declarantes / testemunhas", h.declarantes, "decl")
 
 
@@ -1216,8 +1223,7 @@ if st.session_state.get("robo_lancado"):
         for tipo, lista_attr in [
             ("Vendedor", "vendedores"), ("Comprador", "compradores"),
             ("Doador", "doadores"), ("Donatário", "donatarios"),
-            ("Herdeiro", "herdeiros"), ("Partilhante", "partilhantes"),
-            ("Declarante", "declarantes"),
+            ("Partilhante", "partilhantes"), ("Declarante", "declarantes"),
             ("Nubente", "outorgantes"),        # convenção antenupcial
             ("Justificante", "justificantes"),  # justificação
             ("Confirmante", "confirmantes"),    # justificação
@@ -1226,10 +1232,26 @@ if st.session_state.get("robo_lancado"):
             for i, o in enumerate(lista, 1):
                 emp = "🏢 EMPRESA · " if getattr(o, "e_empresa", False) else ""
                 items.append((f"{tipo} {i}", f"{emp}{o.nome or '?'} · NIF {o.nif or '?'}"))
-        # autor_heranca (habilitacao/partilha)
-        autor = getattr(cv_obj, "autor_heranca", None)
-        if autor:
-            items.append(("Autor da Herança", f"{autor.nome or '?'} · NIF {autor.nif or '?'}"))
+
+        # Habilitacao: obitos (autor + herdeiros de cada). MESMA ordem do robo.py.
+        obitos = getattr(cv_obj, "obitos", None)
+        if obitos:
+            multi = len(obitos) > 1
+            for k, ob in enumerate(obitos, 1):
+                autor = ob.autor_heranca
+                if autor:
+                    rot = f"Autor da Herança {k}" if multi else "Autor da Herança"
+                    items.append((rot, f"{autor.nome or '?'} · NIF {autor.nif or '?'}"))
+                for j, hd in enumerate(ob.herdeiros, 1):
+                    r = f"Herdeiro {k}.{j}" if multi else f"Herdeiro {j}"
+                    items.append((r, f"{hd.nome or '?'} · NIF {hd.nif or '?'}"))
+        else:
+            # Partilha (autor_heranca unico) + retrocompat.
+            autor = getattr(cv_obj, "autor_heranca", None)
+            if autor:
+                items.append(("Autor da Herança", f"{autor.nome or '?'} · NIF {autor.nif or '?'}"))
+            for i, hd in enumerate(getattr(cv_obj, "herdeiros", None) or [], 1):
+                items.append((f"Herdeiro {i}", f"{hd.nome or '?'} · NIF {hd.nif or '?'}"))
         # Bens
         for i, b in enumerate(getattr(cv_obj, "bens", None) or [], 1):
             items.append((f"Bem {i}", b.descricao_predial or b.freguesia or "imóvel"))

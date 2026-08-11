@@ -408,36 +408,46 @@ Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
 {
   "mnemonica": "HAB",
   "data_escritura": "AAAA-MM-DD",
-  "autor_heranca": {"nif": "...", "nome": "...", "e_empresa": false,
-                    "estado_civil": "casado", "regime_bens": "comunhao_geral",
-                    "naturalidade_concelho": "...", "naturalidade_freguesia": "...",
-                    "nacionalidade": "...", "morada": "...", "morada_localidade": "...",
-                    "morada_concelho": "...", "morada_freguesia": "...", "doc_identificacao": null},
-  "data_obito": "AAAA-MM-DD",
-  "assento_obito": "...",
-  "com_testamento": false,
-  "herdeiros": [ ... mesma estrutura de outorgantes ... ],
+  "obitos": [
+    {
+      "autor_heranca": {"nif": null, "nome": "...", "e_empresa": false,
+                        "estado_civil": "casado", "regime_bens": "comunhao_geral",
+                        "naturalidade_concelho": "...", "naturalidade_freguesia": "...",
+                        "nacionalidade": "...", "morada": "...", "morada_localidade": "...",
+                        "morada_concelho": "...", "morada_freguesia": "...", "doc_identificacao": null},
+      "data_obito": "AAAA-MM-DD",
+      "assento_obito": "...",
+      "com_testamento": false,
+      "herdeiros": [ ... mesma estrutura de outorgantes ... ]
+    }
+  ],
   "declarantes": [ ... outorgantes que comparecem e declaram ... ],
   "objeto": "...",
   "avisos": []
 }
 
 Regras:
-- autor_heranca: a pessoa FALECIDA (a 'pessoa de cujus'), NAO a outorgante/cabeca de casal. O
-  texto diz "faleceu FULANO, natural de..., ultima residencia habitual em..., no estado de
-  casado com... sob o regime de...". Preenche o MAXIMO: nome, naturalidade_concelho/freguesia,
-  estado_civil e regime_bens do falecido, e a morada (= a ULTIMA RESIDENCIA HABITUAL; se disser
-  "na morada da outorgante", usa a morada da outorgante). O NIF do falecido normalmente NAO
-  aparece: deixa null.
-- data_obito: a data em que faleceu (converte por extenso -> AAAA-MM-DD).
-- assento_obito: o numero da "certidao do assento de obito" que aparece no Arquivo (ex
-  "assento de obito (2783-4424-6741)" -> "2783-4424-6741"). E o campo "Assento de Obito" do SIMN.
-- com_testamento: true se a escritura menciona testamento ativo (cedula testamentaria).
-- herdeiros: lista dos herdeiros identificados (conjuge, filhos, herdeiros universais), com NIF,
-  nome, estado_civil, naturalidade, morada quando disponivel.
+- obitos: UMA entrada por cada pessoa FALECIDA. MUITO IMPORTANTE: uma habilitacao pode ter
+  VARIOS falecidos (titulo "HABILITACOES"), ex "faleceu o pai... deixou herdeiros X, Y, Z;
+  posteriormente faleceu a mae... deixou herdeiro Z". Cria UM objeto em `obitos` por cada
+  falecido, com os herdeiros DESSE falecido. NAO juntes tudo num so.
+- Em cada obito:
+  - autor_heranca: a pessoa FALECIDA (a 'pessoa de cujus'), NAO a outorgante/cabeca de casal.
+    "faleceu FULANO, natural de..., ultima residencia habitual em..., no estado de casado com...
+    sob o regime de...". Preenche o MAXIMO: nome, naturalidade_concelho/freguesia, estado_civil,
+    regime_bens, e a morada (= ULTIMA RESIDENCIA HABITUAL). O NIF do falecido normalmente NAO
+    aparece: deixa null.
+  - data_obito: a data em que ESTE faleceu (por extenso -> AAAA-MM-DD).
+  - assento_obito: o nº da certidao do assento de obito DESTE falecido (no Arquivo aparecem os
+    varios: "assentos de obito (2517-7249-3048 e 6772-9645-9421)"; associa cada um ao falecido
+    respetivo, pela ordem). Se nao der para associar com certeza, deixa null.
+  - com_testamento: true se ESTE obito menciona testamento ativo.
+  - herdeiros: os herdeiros DESTE falecido (conjuge, filhos, etc), com NIF, nome, estado_civil,
+    naturalidade, morada quando disponivel. Um herdeiro que ja faleceu tambem se lista (a
+    heranca dele pode gerar outro obito).
 - declarantes: quem comparece e declara perante o notario (a cabeca de casal e/ou testemunhas).
-- Outorgantes (autor_heranca, herdeiros, declarantes): naturalidade em naturalidade_concelho +
-  naturalidade_freguesia (infere o concelho a partir da freguesia se preciso).
+- Outorgantes: naturalidade em naturalidade_concelho + naturalidade_freguesia (infere o concelho
+  a partir da freguesia se preciso).
 - Se nao encontrares, poe null. Nunca inventes.
 """
 

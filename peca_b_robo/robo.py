@@ -100,7 +100,6 @@ def listar_itens(campos: dict) -> list[tuple[str, str, dict]]:
         ("Comprador", campos.get("compradores", [])),
         ("Doador", campos.get("doadores", [])),
         ("Donatario", campos.get("donatarios", [])),
-        ("Herdeiro", campos.get("herdeiros", [])),
         ("Partilhante", campos.get("partilhantes", [])),
         ("Declarante", campos.get("declarantes", [])),
         ("Nubente", campos.get("outorgantes", [])),        # convencao antenupcial
@@ -110,9 +109,33 @@ def listar_itens(campos: dict) -> list[tuple[str, str, dict]]:
     for tipo_singular, lista in mapeamento:
         for i, o in enumerate(lista, 1):
             items.append((f"{tipo_singular} {i}", tipo_singular.lower(), o))
-    # autor_heranca (habilitacao / partilha)
-    if campos.get("autor_heranca"):
-        items.append(("Autor da Heranca (falecido)", "autor_heranca", campos["autor_heranca"]))
+
+    # Habilitacao: UM ou VARIOS obitos. Cada obito = o falecido (autor da heranca,
+    # com a SUA data/assento injectados) + os herdeiros DELE. No SIMN preenche-se um
+    # de cada vez, por isso ficam todos na lista, na ordem: autor, herdeiros, autor...
+    obitos = campos.get("obitos")
+    if obitos:
+        multi = len(obitos) > 1
+        for k, ob in enumerate(obitos, 1):
+            autor = ob.get("autor_heranca")
+            if autor:
+                autor_item = {**autor, "data_obito": ob.get("data_obito"),
+                              "assento_obito": ob.get("assento_obito")}
+                rotulo = f"Autor da Heranca {k}" if multi else "Autor da Heranca (falecido)"
+                items.append((rotulo, "autor_heranca", autor_item))
+            for j, h in enumerate(ob.get("herdeiros", []), 1):
+                rot = f"Herdeiro {k}.{j}" if multi else f"Herdeiro {j}"
+                items.append((rot, "herdeiro", h))
+    else:
+        # Estrutura antiga (1 obito no topo, herdeiros a parte) - retrocompat.
+        if campos.get("autor_heranca"):
+            autor_item = {**campos["autor_heranca"],
+                          "data_obito": campos.get("data_obito"),
+                          "assento_obito": campos.get("assento_obito")}
+            items.append(("Autor da Heranca (falecido)", "autor_heranca", autor_item))
+        for i, h in enumerate(campos.get("herdeiros", []), 1):
+            items.append((f"Herdeiro {i}", "herdeiro", h))
+
     # Bens
     for i, b in enumerate(campos.get("bens", []), 1):
         items.append((f"Bem {i}", "bem", b))
@@ -193,9 +216,11 @@ def modo_batch(caminho_json: str, idx: int) -> int:
     # outorgante singular + Data/Assento de obito (calibrado 2026-07-10). A data e
     # o assento vivem ao nivel da Habilitacao, por isso injectamo-los no item.
     if tipo == "autor_heranca":
+        # A data/assento ja vem no item (injectados por listar_itens a partir do
+        # obito). Fallback para o topo do JSON (estrutura antiga de 1 obito).
         dados = {**dados, "_autor_heranca": True,
-                 "data_obito": campos.get("data_obito"),
-                 "assento_obito": campos.get("assento_obito")}
+                 "data_obito": dados.get("data_obito") or campos.get("data_obito"),
+                 "assento_obito": dados.get("assento_obito") or campos.get("assento_obito")}
 
     fill_fn, primeiro_campo = _dispatch(tipo, dados)
 

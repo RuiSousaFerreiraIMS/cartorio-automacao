@@ -403,44 +403,65 @@ class Doacao(_Base):
         return avisos
 
 
-class Habilitacao(_Base):
+class Obito(_Base):
     """
-    Habilitacao Notarial: declaracao dos herdeiros de uma pessoa falecida.
-
-    Pode ser com ou sem testamento. Quem assina sao normalmente herdeiros e
-    duas/tres testemunhas (declarantes que confirmam o universo de herdeiros).
+    Um falecido dentro de uma habilitacao. Uma habilitacao pode ter VARIOS obitos
+    (ex: falece o pai e depois a mae), cada um com o SEU falecido, data, assento e
+    conjunto de herdeiros. No SIMN preenche-se um de cada vez.
     """
-    mnemonica: str = Field("HAB", description="Mnemonica para habilitacao notarial.")
-    data_escritura: Optional[str] = None
     autor_heranca: Optional[Outorgante] = Field(
-        None, description="O falecido (a 'pessoa de cujus'). Dados pessoais + data de obito."
+        None, description="O falecido (a 'pessoa de cujus'). Dados pessoais."
     )
-    data_obito: Optional[str] = Field(None, description="Data do obito do autor da heranca.")
+    data_obito: Optional[str] = Field(None, description="Data do obito.")
     assento_obito: Optional[str] = Field(
         None, description="Nº da certidao do assento de obito (campo 'Assento de Obito' do SIMN)."
     )
-    com_testamento: bool = Field(False, description="True se o ato menciona testamento ativo.")
-    herdeiros: list[Outorgante] = Field(default_factory=list)
+    com_testamento: bool = Field(False, description="True se este obito menciona testamento ativo.")
+    herdeiros: list[Outorgante] = Field(
+        default_factory=list, description="Os herdeiros DESTE falecido."
+    )
+
+
+class Habilitacao(_Base):
+    """
+    Habilitacao Notarial: declaracao dos herdeiros de uma ou mais pessoas
+    falecidas. Quando ha mais que um falecido o titulo vem no plural
+    ("HABILITACOES"). Quem assina sao normalmente herdeiros e/ou testemunhas
+    (declarantes que confirmam o universo de herdeiros).
+    """
+    mnemonica: str = Field("HAB", description="Mnemonica para habilitacao notarial.")
+    data_escritura: Optional[str] = None
+    obitos: list[Obito] = Field(
+        default_factory=list,
+        description="UM ou VARIOS falecidos, cada um com o seu autor/data/assento/herdeiros.",
+    )
     declarantes: list[Outorgante] = Field(
         default_factory=list,
-        description="Quem comparece e declara (pode incluir herdeiros e testemunhas).",
+        description="Quem comparece e declara (cabeca de casal e/ou testemunhas).",
     )
     objeto: Optional[str] = None
     avisos: list[str] = Field(default_factory=list)
 
+    @property
+    def plural(self) -> bool:
+        """True se ha mais que um obito (titulo 'Habilitacoes')."""
+        return len(self.obitos) > 1
+
     def validar_e_avisar(self) -> list[str]:
         avisos = []
-        if self.autor_heranca is None:
-            avisos.append("Autor da heranca (falecido) nao detetado.")
-        elif not self.autor_heranca.nif:
-            avisos.append("Autor da heranca sem NIF, confirmar.")
-        if not self.data_obito:
-            avisos.append("Data de obito nao detetada, confirmar.")
-        if not self.herdeiros:
-            avisos.append("Nenhum herdeiro detetado.")
-        avisos += _avisos_outorgantes("Herdeiro", self.herdeiros)
-        if self.com_testamento:
-            avisos.append("Habilitacao com testamento, confirmar interpretacao.")
+        if not self.obitos:
+            avisos.append("Nenhum obito detetado.")
+        for k, ob in enumerate(self.obitos, 1):
+            pref = f"Obito {k}" if len(self.obitos) > 1 else "Obito"
+            if ob.autor_heranca is None:
+                avisos.append(f"{pref}: falecido nao detetado.")
+            if not ob.data_obito:
+                avisos.append(f"{pref}: data de obito nao detetada, confirmar.")
+            if not ob.herdeiros:
+                avisos.append(f"{pref}: nenhum herdeiro detetado.")
+            avisos += _avisos_outorgantes(f"{pref} herdeiro", ob.herdeiros)
+            if ob.com_testamento:
+                avisos.append(f"{pref}: com testamento, confirmar interpretacao.")
         return avisos
 
 
