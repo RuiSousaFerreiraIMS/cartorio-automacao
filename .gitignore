@@ -45,3 +45,5 @@ reportes/*
 !reportes/LEIA-ME.md
 !reportes/_TEMPLATE
 !reportes/_TEMPLATE/**
+
+peca_a_extracao/boletim_TESTE_*.pdf
