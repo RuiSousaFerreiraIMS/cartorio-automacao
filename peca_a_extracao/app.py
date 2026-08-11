@@ -574,17 +574,8 @@ def editar_outorgante(prefixo, indice, o):
     o.nif = _vazio_para_none(c1.text_input("NIF", o.nif or "", key=k("nif")))
     o.nome = _vazio_para_none(c2.text_input("Nome", o.nome or "", key=k("nome")))
     o.e_empresa = c3.checkbox("Empresa", o.e_empresa, key=k("emp"))
-
-    # EXTERNO: a funcionaria marca quem entra pelo form simples "Outorgantes
-    # Externos" (so NIF + Nome + Qualidade). Ao marcar, aparece a Qualidade.
-    ce1, ce2 = st.columns([1, 3])
-    o.e_externo = ce1.checkbox("Externo", getattr(o, "e_externo", False), key=k("ext"),
-                               help="Entra pela lista 'Outorgantes Externos' (form simples).")
-    if o.e_externo:
-        o.qualidade = _vazio_para_none(
-            ce2.text_input("Qualidade (função no ato)", o.qualidade or "", key=k("qual"),
-                           placeholder="Ex: Procurador, Consentimento, Cedente")
-        )
+    # (O toggle "Externo" e a Qualidade estao agora no painel de Externos, junto
+    #  aos botoes Preencher, para ser mais pratico de marcar.)
 
     # Campos de EMPRESA (Outorgante Colectivo): so aparecem quando "Empresa" marcado.
     # A sede reutiliza os campos de morada la em baixo (Localidade/Concelho/Freguesia/CP).
@@ -915,34 +906,44 @@ def tab_ducs(lista):
 # RENDERERS por tipo
 # ─────────────────────────────────────────────────────────────
 _LISTAS_OUTORGANTES = [
-    "vendedores", "compradores", "doadores", "donatarios", "partilhantes",
-    "declarantes", "outorgantes", "justificantes", "confirmantes",
+    ("vendedores", "Vendedor"), ("compradores", "Comprador"),
+    ("doadores", "Doador"), ("donatarios", "Donatário"),
+    ("partilhantes", "Partilhante"), ("declarantes", "Declarante"),
+    ("outorgantes", "Nubente"), ("justificantes", "Justificante"),
+    ("confirmantes", "Confirmante"),
 ]
 
 
-def _seccao_externos(obj):
-    """Secção comum a QUALQUER ato: se houver outorgantes marcados como externo,
-    mostra Livro/Folhas/Natureza (uma vez) e a lista. O robô preenche todos com 1
-    clique (item 'Externos'). A Qualidade de cada um edita-se na ficha do outorgante."""
-    externos = [o for la in _LISTAS_OUTORGANTES for o in (getattr(obj, la, None) or [])
-                if getattr(o, "e_externo", False)]
-    if not externos:
+def _painel_externos(obj):
+    """Painel dos Outorgantes Externos, mostrado JUNTO aos botoes Preencher: a
+    funcionaria marca aqui quem e' externo (☑), poe o Livro e as Folhas UMA vez, e
+    depois clica Preencher no item 'Externos'. Serve qualquer tipo de ato."""
+    todos = [(la, i, o, papel)
+             for la, papel in _LISTAS_OUTORGANTES
+             for i, o in enumerate(getattr(obj, la, None) or [])]
+    if not todos:
         return
-    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
-    st.markdown(f"**Outorgantes externos ({len(externos)})** — Livro e Folhas iguais para todos:")
-    c1, c2, c3 = st.columns([1, 1, 2])
-    obj.livro = _vazio_para_none(
-        c1.text_input("Livro", getattr(obj, "livro", "") or "", key="ext_livro", placeholder="263A"))
-    obj.folhas = _vazio_para_none(
-        c2.text_input("Folhas", getattr(obj, "folhas", "") or "", key="ext_folhas", placeholder="33"))
-    obj.natureza_acto = _vazio_para_none(
-        c3.text_input("Natureza do acto", getattr(obj, "natureza_acto", "") or "",
-                      key="ext_nat", placeholder="Ex: Compra e venda de imóveis"))
-    for o in externos:
-        st.markdown(f"- **{o.nome or '?'}** · NIF {o.nif or '?'} · "
-                    f"qualidade: *{o.qualidade or '(definir na ficha do outorgante)'}*")
-    st.caption("Marca quem é externo na ficha de cada outorgante (☑ Externo). Depois clica "
-               "▶ Preencher no item **Externos** — o robô lança todos de uma vez.")
+    n_ext = sum(1 for _, _, o, _ in todos if getattr(o, "e_externo", False))
+    titulo = f"👥 Outorgantes externos — {n_ext} marcado(s)" if n_ext else "👥 Outorgantes externos"
+    with st.expander(titulo, expanded=bool(n_ext)):
+        c1, c2, c3 = st.columns([1, 1, 2])
+        obj.livro = _vazio_para_none(
+            c1.text_input("Livro", getattr(obj, "livro", "") or "", key="pext_livro", placeholder="263A"))
+        obj.folhas = _vazio_para_none(
+            c2.text_input("Folhas", getattr(obj, "folhas", "") or "", key="pext_folhas", placeholder="33"))
+        obj.natureza_acto = _vazio_para_none(
+            c3.text_input("Natureza do acto", getattr(obj, "natureza_acto", "") or "", key="pext_nat"))
+        st.caption("Marca quem entra pela lista de Outorgantes Externos. A Qualidade já vem "
+                   "sugerida; ajusta se preciso (ex: Procurador, Consentimento).")
+        for la, i, o, papel in todos:
+            cc1, cc2 = st.columns([3, 2])
+            o.e_externo = cc1.checkbox(
+                f"{o.nome or '?'} · NIF {o.nif or '?'}", value=getattr(o, "e_externo", False),
+                key=f"pext_chk_{la}_{i}")
+            if o.e_externo:
+                o.qualidade = _vazio_para_none(cc2.text_input(
+                    "Qualidade", o.qualidade or papel, key=f"pext_qual_{la}_{i}",
+                    label_visibility="collapsed", placeholder="Qualidade"))
 
 
 def render_cv(cv):
@@ -962,7 +963,6 @@ def render_cv(cv):
             st.markdown(f"**Herança indivisa** — NIF {cv.heranca.nif or '?'}, "
                         f"entra no formulário **{forma}** (regra do NIF)")
             card_outorgante("heranca", 0, cv.heranca)
-        _seccao_externos(cv)
     with tab_bem:
         secao_bens(cv.bens)
     with tab_val:
@@ -982,7 +982,6 @@ def render_doacao(d):
         secao_outorgantes("Doadores", d.doadores, "doa")
         st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
         secao_outorgantes("Donatários", d.donatarios, "don")
-        _seccao_externos(d)
     with tab_bem:
         secao_bens(d.bens)
     with tab_val:
@@ -1031,7 +1030,6 @@ def render_habilitacao(h):
             secao_outorgantes("Herdeiros", ob.herdeiros, f"herd_{k}")
             st.markdown("---")
         secao_outorgantes("Declarantes / testemunhas", h.declarantes, "decl")
-        _seccao_externos(h)
 
 
 def render_partilha(p):
@@ -1054,7 +1052,6 @@ def render_partilha(p):
             card_outorgante("autor_p", 0, p.autor_heranca)
             st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
         secao_outorgantes("Partilhantes", p.partilhantes, "part")
-        _seccao_externos(p)
     with tab_bem:
         secao_bens(p.bens)
     with tab_val:
@@ -1096,7 +1093,6 @@ def render_convencao(cv):
         )
         st.markdown("---")
         secao_outorgantes("Nubentes", cv.outorgantes, "nub")
-        _seccao_externos(cv)
 
 
 def render_justificacao(j):
@@ -1108,7 +1104,6 @@ def render_justificacao(j):
         secao_outorgantes("Justificantes", j.justificantes, "just")
         st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
         secao_outorgantes("Confirmantes / testemunhas", j.confirmantes, "conf")
-        _seccao_externos(j)
     with tab_bem:
         secao_bens(j.bens)
 
@@ -1333,6 +1328,9 @@ if st.session_state.get("robo_lancado"):
         for i, d in enumerate(getattr(cv_obj, "ducs", None) or [], 1):
             items.append((f"DUC {i}", f"nº {d.numero or '?'}"))
         return items
+
+    # Painel dos externos (marcar quem e' externo + Livro/Folhas) JUNTO ao Preencher.
+    _painel_externos(obj)
 
     itens_disponiveis = _lista_para_botoes(obj)
     if itens_disponiveis:
