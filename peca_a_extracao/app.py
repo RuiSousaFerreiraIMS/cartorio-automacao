@@ -35,7 +35,12 @@ from modelos import (
     Bem, CompraVenda, Convencao, DUC, Doacao, EstadoCivil, Habilitacao,
     Justificacao, Obito, Outorgante, Partilha, RegimeBens, Testamento, TipoSociedade,
 )
-from boletim import gerar_boletim_pdf
+try:
+    from boletim import gerar_boletim_pdf
+    _ERRO_BOLETIM = None
+except Exception as _e:  # reportlab pode nao estar instalado neste Python
+    gerar_boletim_pdf = None
+    _ERRO_BOLETIM = _e
 
 # ─────────────────────────────────────────────────────────────
 # Configuração
@@ -1167,11 +1172,17 @@ def render_testamento(t):
         for rot, val in _boletim_dados(t):
             st.markdown(f"- **{rot}:** {val or '—'}")
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-        st.download_button(
-            "🖨️ Gerar boletim (PDF) para imprimir", data=gerar_boletim_pdf(t),
-            file_name="boletim_testamento.pdf", mime="application/pdf",
-            use_container_width=True,
-        )
+        if gerar_boletim_pdf is None:
+            st.warning(
+                "O gerador do boletim (PDF) precisa do reportlab, que não está "
+                "instalado neste Python. Corre o `atualizar.bat` (faz o pip install) "
+                "ou instala à mão. Detalhe: " + str(_ERRO_BOLETIM))
+        else:
+            st.download_button(
+                "🖨️ Gerar boletim (PDF) para imprimir", data=gerar_boletim_pdf(t),
+                file_name="boletim_testamento.pdf", mime="application/pdf",
+                use_container_width=True,
+            )
         st.caption("Abre o PDF e imprime na bandeja do formulário, a **100% (tamanho real)**. "
                    "Se sair desalinhado, diz o desvio ao Rui (ex '3mm à direita') que se acerta.")
 

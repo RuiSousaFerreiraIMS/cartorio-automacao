@@ -12,8 +12,11 @@ pyautogui
 pywinauto
 opencv-python  # necessario para pyautogui.locateOnScreen(confidence=...)
 
+# O boletim do testamento (PDF) NAO precisa de pacote nenhum: e' escrito a mao
+# em Python puro (ver peca_a_extracao/boletim.py). Assim nao ha 'pip install'
+# para falhar PC a PC.
+
 # Para ler .doc antigo (Word 97-2003), é preciso UM destes no sistema:
 #  - LibreOffice (recomendado): instalar a app, traz o 'soffice'
 #  - Git for Windows: traz antiword embutido
 # Não são pacotes pip; instalam-se ao nível do sistema.
-reportlab>=4.0

@@ -5,17 +5,16 @@ O formulario e' PRE-IMPRESSO (esta na bandeja da impressora), 130mm x 180mm. Est
 PDF tem SO os dados, nas posicoes certas, para cair por cima das linhas do
 formulario. A funcionaria imprime este PDF nessa bandeja, a 100% (tamanho real).
 
+SEM DEPENDENCIAS: o PDF e' escrito a mao (o boletim e' so texto em Helvetica em
+posicoes fixas numa pagina). Assim nao ha reportlab nem 'pip install' para
+falhar PC a PC. So Python puro.
+
 CALIBRACAO: as posicoes sao estimativas do layout. Depois de um teste de impressao
 (imprimir numa folha branca e sobrepor ao formulario), se estiver tudo desviado
 mexe-se em OFFSET_X / OFFSET_Y (mm); se um campo em concreto estiver torto, mexe-se
 a sua posicao em POSICOES.
 """
 from __future__ import annotations
-
-import io
-
-from reportlab.lib.units import mm
-from reportlab.pdfgen import canvas
 
 FORM_W_MM = 130.0
 FORM_H_MM = 180.0
@@ -24,8 +23,9 @@ FORM_H_MM = 180.0
 OFFSET_X = 0.0
 OFFSET_Y = 0.0
 
-FONTE = "Helvetica"
-TAMANHO = 9
+TAMANHO = 9  # pt
+
+_MM_PT = 72.0 / 25.4  # 1 mm em pontos
 
 # Posicoes de cada campo: (x da esquerda, y a partir do TOPO), em mm.
 POSICOES = {
@@ -99,19 +99,67 @@ def valores_boletim(t) -> dict:
     }
 
 
+def _escapar_texto_pdf(texto: str) -> bytes:
+    """Codifica em WinAnsi (cp1252, o que a Helvetica usa) e escapa ( ) \\."""
+    b = texto.encode("cp1252", errors="replace")
+    b = b.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
+    return b
+
+
 def gerar_boletim_pdf(t) -> bytes:
-    """Devolve os bytes de um PDF 130x180mm com os dados do testamento posicionados."""
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=(FORM_W_MM * mm, FORM_H_MM * mm))
-    c.setFont(FONTE, TAMANHO)
+    """Devolve os bytes de um PDF 130x180mm com os dados do testamento posicionados.
+
+    Escreve o PDF a mao (sem reportlab): 1 pagina, fonte Helvetica standard.
+    """
     valores = valores_boletim(t)
+    w_pt = FORM_W_MM * _MM_PT
+    h_pt = FORM_H_MM * _MM_PT
+
+    # ---- Stream de conteudo: um bloco de texto por campo preenchido ----
+    linhas = []
     for campo, (x, y) in POSICOES.items():
         texto = str(valores.get(campo, "") or "").strip()
         if not texto:
             continue
-        px = (x + OFFSET_X) * mm
-        py = (FORM_H_MM - y + OFFSET_Y) * mm   # reportlab conta o y de BAIXO
-        c.drawString(px, py, texto)
-    c.showPage()
-    c.save()
-    return buf.getvalue()
+        px = (x + OFFSET_X) * _MM_PT
+        py = (FORM_H_MM - y + OFFSET_Y) * _MM_PT  # PDF conta o y de BAIXO
+        esc = _escapar_texto_pdf(texto).decode("latin-1")
+        linhas.append(f"BT /F1 {TAMANHO} Tf {px:.2f} {py:.2f} Td ({esc}) Tj ET")
+    stream = "\n".join(linhas).encode("latin-1")
+
+    # ---- Montar os objetos do PDF ----
+    objetos = []
+    objetos.append(b"<< /Type /Catalog /Pages 2 0 R >>")
+    objetos.append(b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+    objetos.append(
+        b"<< /Type /Page /Parent 2 0 R "
+        + f"/MediaBox [0 0 {w_pt:.2f} {h_pt:.2f}] ".encode("latin-1")
+        + b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"
+    )
+    objetos.append(
+        b"<< /Length " + str(len(stream)).encode("latin-1") + b" >>\nstream\n"
+        + stream + b"\nendstream"
+    )
+    objetos.append(
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica "
+        b"/Encoding /WinAnsiEncoding >>"
+    )
+
+    # ---- Serializar com a tabela xref ----
+    out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for i, corpo in enumerate(objetos, start=1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n".encode("latin-1") + corpo + b"\nendobj\n"
+
+    xref_pos = len(out)
+    n = len(objetos) + 1
+    out += f"xref\n0 {n}\n".encode("latin-1")
+    out += b"0000000000 65535 f \n"
+    for off in offsets[1:]:
+        out += f"{off:010d} 00000 n \n".encode("latin-1")
+    out += (
+        f"trailer\n<< /Size {n} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n"
+    ).encode("latin-1")
+
+    return bytes(out)
