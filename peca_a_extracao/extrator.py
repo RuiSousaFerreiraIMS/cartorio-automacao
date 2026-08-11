@@ -23,7 +23,7 @@ import time
 from google import genai
 from google.genai import types
 
-from modelos import CompraVenda, Doacao, Habilitacao, Partilha
+from modelos import CompraVenda, Convencao, Doacao, Habilitacao, Justificacao, Partilha
 
 
 def _log(msg: str) -> None:
@@ -184,6 +184,13 @@ Regras importantes:
   como "declaracao para inscricao ... apresentada no Servico de Financas de X em DD/MM/AAAA, com
   o registo numero N". Extrai essa DATA no formato AAAA-MM-DD (ex "2026-04-25"). Se o artigo NAO
   comeca por P, ou nao ha essa data, poe null.
+- tipo: "U" se a escritura disser predio URBANO ou for uma FRACAO autonoma (as fracoes sao
+  sempre de predios urbanos em propriedade horizontal); "R" se disser predio RUSTICO; "M" se
+  misto. LE a designacao real do predio ("Predio rustico sito em..." -> "R"; "Predio urbano..."
+  ou "Fracao Autonoma..." -> "U"). NUNCA assumas "U" por defeito: se diz rustico, e' "R".
+- designacao_fracao: SO preencher se a escritura designar EXPLICITAMENTE uma fracao autonoma
+  ("Fracao Autonoma designada pela letra X" -> "X"). Se for um predio (urbano ou rustico) SEM
+  fracao, poe null. NUNCA inventes nem deduzas uma letra.
 - preco_venda: o valor por extenso na escritura (ex "DUZENTOS E OITENTA MIL EUROS" = 280000.0).
 - valor_patrimonial: o VPT da fracao se mencionado.
 - hipoteca_a_cancelar: true se o texto fala em cancelamento de hipoteca existente.
@@ -490,6 +497,79 @@ def extrair_partilha(texto: str, modelo: str | None = None) -> Partilha:
     return p
 
 
+PROMPT_CONVENCAO = """Es um extrator de dados de escrituras notariais portuguesas de CONVENCAO ANTENUPCIAL.
+Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
+
+{
+  "mnemonica": "CONV",
+  "data_escritura": "AAAA-MM-DD",
+  "outorgantes": [ ... os DOIS nubentes, mesma estrutura de outorgantes ... ],
+  "regime_convencionado": "comunhao_de_adquiridos",
+  "objeto": "...",
+  "avisos": []
+}
+
+Regras:
+- outorgantes: os DOIS nubentes (noivos) que comparecem. Para CADA um preenche TODOS os campos
+  pessoais do texto: nif, nome, estado_civil (normalmente "solteiro"), naturalidade_concelho,
+  naturalidade_freguesia, nacionalidade, morada, morada_localidade, morada_concelho,
+  morada_freguesia, doc_identificacao.
+- ESTRANGEIRO: se um nubente for de nacionalidade estrangeira, preenche nacionalidade (ex
+  "francesa") e a naturalidade com o PAIS (ex naturalidade_concelho = "Franca"), MAS a morada
+  pode ser em Portugal (mora ca): nesse caso morada_concelho/morada_freguesia sao portugueses.
+  Naturalidade e morada podem estar em paises diferentes, nao os confundas.
+- regime_convencionado: o regime de bens que acordam para o casamento: "comunhao_de_adquiridos",
+  "comunhao_geral" ou "separacao_de_bens" (ou o texto tal e qual se for atipico).
+- NIF: remove espacos. Se nao encontrares um campo, poe null. NUNCA inventes.
+"""
+
+
+def extrair_convencao(texto: str, modelo: str | None = None) -> Convencao:
+    dados = _chamar_llm(texto, PROMPT_CONVENCAO, modelo)
+    _log("A validar com schema Convencao...")
+    c = Convencao(**dados)
+    c.avisos = c.validar_e_avisar()
+    _log(f"  validacao OK. {len(c.avisos)} aviso(s) gerado(s).")
+    return c
+
+
+PROMPT_JUSTIFICACAO = """Es um extrator de dados de escrituras notariais portuguesas de JUSTIFICACAO NOTARIAL (usucapiao).
+Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
+
+{
+  "mnemonica": "JUST",
+  "data_escritura": "AAAA-MM-DD",
+  "justificantes": [ ... outorgantes que dizem ser donos por usucapiao ... ],
+  "confirmantes": [ ... outorgantes que confirmam (testemunhas) ... ],
+  "bens": [ ... mesma estrutura que CV ... ],
+  "objeto": "...",
+  "avisos": []
+}
+
+Regras:
+- justificantes: os PRIMEIROS outorgantes, que declaram ser donos e legitimos possuidores do bem
+  (frequentemente um casal). Para CADA um preenche TODOS os campos pessoais: nif, nome,
+  estado_civil, regime_bens, naturalidade_concelho, naturalidade_freguesia, morada,
+  morada_localidade, morada_concelho, morada_freguesia, doc_identificacao.
+- confirmantes: os SEGUNDOS outorgantes (as testemunhas que confirmam). MUITAS VEZES NAO tem NIF,
+  so cartao de cidadao ou bilhete de identidade: nesse caso deixa nif=null e poe o numero em
+  doc_identificacao. Preenche nome, estado_civil, naturalidade e morada quando disponiveis.
+- bens: o bem que esta a ser justificado (normalmente rustico OMISSO na Conservatoria). Preenche
+  descricao_predial ("omisso" se o texto disser omisso), artigo_matricial, freguesia, concelho,
+  tipo ("R" se rustico, "U" se urbano), valor_patrimonial, morada, descricao_livre.
+- NIF: remove espacos. Se nao encontrares um campo, poe null. NUNCA inventes.
+"""
+
+
+def extrair_justificacao(texto: str, modelo: str | None = None) -> Justificacao:
+    dados = _chamar_llm(texto, PROMPT_JUSTIFICACAO, modelo)
+    _log("A validar com schema Justificacao...")
+    j = Justificacao(**dados)
+    j.avisos = j.validar_e_avisar()
+    _log(f"  validacao OK. {len(j.avisos)} aviso(s) gerado(s).")
+    return j
+
+
 import unicodedata as _ud
 
 
@@ -503,6 +583,8 @@ TIPOS_ATO = [
     ("doacao", "Doação"),
     ("habilitacao", "Habilitação"),
     ("partilha", "Partilha"),
+    ("convencao", "Convenção Antenupcial"),
+    ("justificacao", "Justificação"),
 ]
 
 
@@ -515,14 +597,31 @@ def detetar_tipo_por_texto(texto: str) -> str:
     pode sempre corrigir o tipo na app.
     """
     t = _sem_acentos((texto or "").lower())
-    cab = t[:2500]  # cabecalho: titulo + natureza do ato
-    if "habilita" in cab or (
-        "faleceu" in t and ("cabeca de casal" in t or "herdeir" in t or "de cujus" in t)
-    ):
+    titulo = t.lstrip()[:200]  # o TITULO do ato esta sempre no inicio (1a linha)
+
+    # 1. Pelo TITULO, que e' explicito e fiavel. Tem PRIORIDADE sobre o corpo: uma
+    #    COMPRA E VENDA que menciona uma heranca/falecido NAO e' uma habilitacao.
+    if "compra e venda" in titulo:
+        return "cv"
+    if "convencao antenupcial" in titulo or "antenupcial" in titulo:
+        return "convencao"
+    if "justificacao" in titulo:
+        return "justificacao"
+    if "habilitacao" in titulo or "habilita" in titulo:
         return "habilitacao"
-    if "partilha" in cab or ("adjudica" in t and ("quinhao" in t or "acervo" in t)):
+    if "partilha" in titulo:
         return "partilha"
-    if "doacao" in cab or "donatari" in t:
+    if "doacao" in titulo:
+        return "doacao"
+
+    # 2. Fallback pelo CORPO, so quando o titulo nao chega (raro).
+    if "faleceu" in t and ("cabeca de casal" in t or "herdeir" in t or "de cujus" in t):
+        return "habilitacao"
+    if "usucapiao" in t and "justificante" in t:
+        return "justificacao"
+    if "adjudica" in t and ("quinhao" in t or "acervo" in t):
+        return "partilha"
+    if "donatari" in t:
         return "doacao"
     return "cv"
 
@@ -544,6 +643,8 @@ _DISPATCHERS = {
     "doacao": extrair_doacao,
     "habilitacao": extrair_habilitacao,
     "partilha": extrair_partilha,
+    "convencao": extrair_convencao,
+    "justificacao": extrair_justificacao,
 }
 
 

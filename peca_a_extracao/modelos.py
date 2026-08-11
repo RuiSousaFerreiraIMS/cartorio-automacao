@@ -483,3 +483,66 @@ class Partilha(_Base):
         if self.tornas and self.tornas > 0:
             avisos.append(f"Tornas de {self.tornas:.0f} EUR mencionadas, confirmar quem paga a quem.")
         return avisos
+
+
+class Convencao(_Base):
+    """
+    Convencao antenupcial: dois nubentes acordam o regime de bens do futuro
+    casamento. Nao ha vendedor/comprador nem bem imovel, so os dois outorgantes e
+    o regime convencionado. Um dos nubentes pode ser estrangeiro.
+    """
+    mnemonica: str = Field("CONV", description="Mnemonica para convencao antenupcial.")
+    data_escritura: Optional[str] = None
+    outorgantes: list[Outorgante] = Field(
+        default_factory=list, description="Os dois nubentes (noivos)."
+    )
+    regime_convencionado: Optional[str] = Field(
+        None,
+        description="Regime de bens acordado: comunhao_de_adquiridos / comunhao_geral / "
+                    "separacao_de_bens (ou outro texto se atipico).",
+    )
+    objeto: Optional[str] = None
+    avisos: list[str] = Field(default_factory=list)
+
+    def validar_e_avisar(self) -> list[str]:
+        avisos = []
+        if not self.outorgantes:
+            avisos.append("Nenhum outorgante (nubente) detetado.")
+        elif len(self.outorgantes) != 2:
+            avisos.append(f"{len(self.outorgantes)} nubentes detetados (esperava 2), confirmar.")
+        avisos += _avisos_outorgantes("Nubente", self.outorgantes)
+        if not self.regime_convencionado:
+            avisos.append("Regime convencionado nao detetado, confirmar.")
+        return avisos
+
+
+class Justificacao(_Base):
+    """
+    Justificacao notarial (usucapiao): os justificantes declaram ser donos de um
+    bem por usucapiao; os confirmantes (testemunhas) confirmam. Detetar TODOS os
+    outorgantes e o bem. Os confirmantes muitas vezes so tem cartao de cidadao,
+    sem NIF, por isso nao se avisa da falta de NIF deles.
+    """
+    mnemonica: str = Field("JUST", description="Mnemonica para justificacao notarial.")
+    data_escritura: Optional[str] = None
+    justificantes: list[Outorgante] = Field(
+        default_factory=list, description="Quem declara ser dono por usucapiao (o casal, etc)."
+    )
+    confirmantes: list[Outorgante] = Field(
+        default_factory=list,
+        description="Testemunhas que confirmam as declaracoes (podem nao ter NIF).",
+    )
+    bens: list[Bem] = Field(default_factory=list)
+    objeto: Optional[str] = None
+    avisos: list[str] = Field(default_factory=list)
+
+    def validar_e_avisar(self) -> list[str]:
+        avisos = []
+        if not self.justificantes:
+            avisos.append("Nenhum justificante detetado.")
+        avisos += _avisos_outorgantes("Justificante", self.justificantes)
+        if not self.confirmantes:
+            avisos.append("Nenhum confirmante (testemunha) detetado, confirmar.")
+        if not self.bens:
+            avisos.append("Nenhum bem detetado.")
+        return avisos
