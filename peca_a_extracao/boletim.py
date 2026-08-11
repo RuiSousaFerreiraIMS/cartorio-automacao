@@ -1,52 +1,61 @@
 """
-Gera o PDF do BOLETIM de participacao de testamento (Modelo 54, Tip. Tipomar).
+Gera o PDF do BOLETIM de participacao de testamento (Modelo 54).
 
-O formulario e' PRE-IMPRESSO (esta na bandeja da impressora), 130mm x 180mm. Este
-PDF tem SO os dados, nas posicoes certas, para cair por cima das linhas do
-formulario. A funcionaria imprime este PDF nessa bandeja, a 100% (tamanho real).
+COMO FUNCIONA (igual ao programa antigo do cartorio): a pagina e' A4 e os dados
+saem nas MESMAS posicoes que esse programa usava. A funcionaria imprime este PDF
+na BANDEJA MULTIFUNCIONAL, onde esta' a folha pre-impressa do formulario; a
+impressora "pousa" o A4 por cima do formulario e os dados caem nas linhas certas.
 
-SEM DEPENDENCIAS: o PDF e' escrito a mao (o boletim e' so texto em Helvetica em
-posicoes fixas numa pagina). Assim nao ha reportlab nem 'pip install' para
-falhar PC a PC. So Python puro.
+    IMPRIMIR: bandeja multifuncional, A4, ESCALA 100% / "Tamanho real"
+    (NUNCA "Ajustar a' pagina", senao desalinha tudo).
 
-CALIBRACAO: as posicoes sao estimativas do layout. Depois de um teste de impressao
-(imprimir numa folha branca e sobrepor ao formulario), se estiver tudo desviado
-mexe-se em OFFSET_X / OFFSET_Y (mm); se um campo em concreto estiver torto, mexe-se
-a sua posicao em POSICOES.
+As posicoes em POSICOES foram MEDIDAS do preview do programa antigo (testador
+Angela Atkins, 2026-08-11). Os campos que esse exemplo nao mostrava (outros
+apelidos, naturalidade freg/conc de portugues, nacionalidade) estao marcados
+ESTIMADO e afinam-se com um teste de impressao ou com o formulario em branco.
+
+SEM DEPENDENCIAS: o PDF e' escrito a mao (so texto Helvetica em posicoes fixas).
+Nao ha reportlab nem 'pip install' para falhar PC a PC.
+
+CALIBRACAO: apos um teste de impressao, se estiver tudo deslocado por igual mexe-se
+OFFSET_X / OFFSET_Y (mm). Se so um campo estiver torto, mexe-se a sua linha em
+POSICOES. Se o desvio CRESCER de cima para baixo, e' escala: dizer o desvio em
+cima E em baixo que se acerta.
 """
 from __future__ import annotations
 
-FORM_W_MM = 130.0
-FORM_H_MM = 180.0
+FORM_W_MM = 210.0   # A4
+FORM_H_MM = 297.0
 
 # Ajuste GLOBAL apos o teste de impressao (mm). +X = direita, +Y = baixo.
 OFFSET_X = 0.0
 OFFSET_Y = 0.0
 
-TAMANHO = 9  # pt
+TAMANHO = 10  # pt
 
 _MM_PT = 72.0 / 25.4  # 1 mm em pontos
 
-# Posicoes de cada campo: (x da esquerda, y a partir do TOPO), em mm.
+# Posicoes de cada campo: (x da esquerda, y a partir do TOPO), em mm, numa A4.
+# MEDIDO = tirado do preview do programa antigo. ESTIMADO = por confirmar.
 POSICOES = {
-    "ult_apelido":   (26, 22),
-    "outros_apel":  (100, 22),
-    "nome_prop":     (26, 37),
-    "estado":        (22, 45),
-    "nasc_dia":      (74, 45),
-    "nasc_mes":      (86, 45),
-    "nasc_ano":      (96, 45),
-    "nat_freg":      (40, 54),
-    "nat_conc":      (16, 62),
-    "nat_pais":      (95, 62),
-    "nacionalidade": (42, 70),
-    "resid_freg":    (42, 78),
-    "resid_conc":    (16, 86),
-    "pai":           (40, 95),
-    "mae":           (18, 103),
-    "especie":       (52, 111),
-    "cartorio":      (58, 128),
-    "a_cargo":       (30, 136),
+    "ult_apelido":   (40, 36),    # MEDIDO ("Atkins")
+    "outros_apel":   (40, 50),    # ESTIMADO (nao aparecia no exemplo)
+    "nome_prop":     (40, 63),    # MEDIDO ("Angela")
+    "estado":        (29, 77),    # MEDIDO ("Casado")
+    "nasc_dia":     (159, 76),    # MEDIDO ("12")
+    "nasc_mes":     (171, 76),    # MEDIDO ("5")
+    "nasc_ano":     (186, 76),    # MEDIDO ("1960")
+    "nat_freg":      (60, 87),    # ESTIMADO (portugues; exemplo era estrangeiro)
+    "nat_conc":      (25, 100),   # ESTIMADO (idem)
+    "nat_pais":      (54, 113),   # MEDIDO ("Africa do Sul")
+    "nacionalidade": (50, 120),   # ESTIMADO (nao aparecia no exemplo)
+    "resid_freg":    (61, 128),   # MEDIDO ("Famalicao")
+    "resid_conc":    (25, 142),   # MEDIDO ("NAZARE")
+    "pai":           (52, 154),   # MEDIDO ("William Danial Nel")
+    "mae":           (34, 166),   # MEDIDO ("Patricia Sylvia Nel")
+    "especie":       (71, 180),   # MEDIDO ("Testamento publico... - 24/09/2025")
+    "cartorio":     (109, 207),   # MEDIDO ("ALCOBACA")
+    "a_cargo":       (56, 218),   # MEDIDO ("RUI SERGIO HELENO FERREIRA")
 }
 
 
@@ -58,6 +67,12 @@ def _iso_para_ddmmaaaa(iso):
         ano, mes, dia = m.groups()
         return dia, mes, ano
     return "", "", ""
+
+
+def _sem_zero(s):
+    """'05' -> '5', '12' -> '12'. O formulario mostra o dia/mes sem zero a' frente."""
+    s = str(s or "").strip()
+    return str(int(s)) if s.isdigit() else s
 
 
 def valores_boletim(t) -> dict:
@@ -83,7 +98,7 @@ def valores_boletim(t) -> dict:
         "outros_apel": outros,
         "nome_prop": prop,
         "estado": estado,
-        "nasc_dia": dia, "nasc_mes": mes, "nasc_ano": ano,
+        "nasc_dia": _sem_zero(dia), "nasc_mes": _sem_zero(mes), "nasc_ano": ano,
         # Naturalidade: freg/conc SO se portugues; pais SO se estrangeiro (o (*) no form).
         "nat_freg": (td.naturalidade_freguesia if td else "") or "",
         "nat_conc": (td.naturalidade_concelho if td else "") or "",
@@ -107,9 +122,9 @@ def _escapar_texto_pdf(texto: str) -> bytes:
 
 
 def gerar_boletim_pdf(t) -> bytes:
-    """Devolve os bytes de um PDF 130x180mm com os dados do testamento posicionados.
+    """Devolve os bytes de um PDF A4 com os dados do testamento posicionados.
 
-    Escreve o PDF a mao (sem reportlab): 1 pagina, fonte Helvetica standard.
+    Escreve o PDF a mao (sem reportlab): 1 pagina A4, fonte Helvetica standard.
     """
     valores = valores_boletim(t)
     w_pt = FORM_W_MM * _MM_PT
