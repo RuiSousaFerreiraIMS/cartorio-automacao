@@ -32,8 +32,8 @@ from extrator import (
     TIPOS_ATO, detetar_tipo_por_texto, extrair_texto, ler_documento,
 )
 from modelos import (
-    Bem, CompraVenda, DUC, Doacao, EstadoCivil, Habilitacao,
-    Outorgante, Partilha, RegimeBens, TipoSociedade,
+    Bem, CompraVenda, Convencao, DUC, Doacao, EstadoCivil, Habilitacao,
+    Justificacao, Outorgante, Partilha, RegimeBens, TipoSociedade,
 )
 
 # ─────────────────────────────────────────────────────────────
@@ -266,7 +266,8 @@ def _data_curta(d):
 
 def _tipo_humano(mnemonica):
     return {"CV": "Compra-venda", "DOAC": "Doação",
-            "HAB": "Habilitação Notarial", "PART": "Partilha"}.get(mnemonica, mnemonica)
+            "HAB": "Habilitação Notarial", "PART": "Partilha",
+            "CONV": "Convenção Antenupcial", "JUST": "Justificação"}.get(mnemonica, mnemonica)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1027,11 +1028,37 @@ def render_partilha(p):
             ) or None
 
 
+def render_convencao(cv):
+    tab_geral, = st.tabs([f"Outorgantes ({len(cv.outorgantes)})"])
+    with tab_geral:
+        cv.regime_convencionado = _vazio_para_none(
+            st.text_input("Regime convencionado", cv.regime_convencionado or "",
+                          placeholder="Ex: comunhao_de_adquiridos")
+        )
+        st.markdown("---")
+        secao_outorgantes("Nubentes", cv.outorgantes, "nub")
+
+
+def render_justificacao(j):
+    tab_out, tab_bem = st.tabs([
+        f"Outorgantes ({len(j.justificantes) + len(j.confirmantes)})",
+        f"Bens ({len(j.bens)})",
+    ])
+    with tab_out:
+        secao_outorgantes("Justificantes", j.justificantes, "just")
+        st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
+        secao_outorgantes("Confirmantes / testemunhas", j.confirmantes, "conf")
+    with tab_bem:
+        secao_bens(j.bens)
+
+
 RENDERERS = {
     CompraVenda: render_cv,
     Doacao: render_doacao,
     Habilitacao: render_habilitacao,
     Partilha: render_partilha,
+    Convencao: render_convencao,
+    Justificacao: render_justificacao,
 }
 
 
@@ -1191,6 +1218,9 @@ if st.session_state.get("robo_lancado"):
             ("Doador", "doadores"), ("Donatário", "donatarios"),
             ("Herdeiro", "herdeiros"), ("Partilhante", "partilhantes"),
             ("Declarante", "declarantes"),
+            ("Nubente", "outorgantes"),        # convenção antenupcial
+            ("Justificante", "justificantes"),  # justificação
+            ("Confirmante", "confirmantes"),    # justificação
         ]:
             lista = getattr(cv_obj, lista_attr, None) or []
             for i, o in enumerate(lista, 1):

@@ -103,6 +103,9 @@ def listar_itens(campos: dict) -> list[tuple[str, str, dict]]:
         ("Herdeiro", campos.get("herdeiros", [])),
         ("Partilhante", campos.get("partilhantes", [])),
         ("Declarante", campos.get("declarantes", [])),
+        ("Nubente", campos.get("outorgantes", [])),        # convencao antenupcial
+        ("Justificante", campos.get("justificantes", [])),  # justificacao
+        ("Confirmante", campos.get("confirmantes", [])),    # justificacao (testemunhas)
     ]
     for tipo_singular, lista in mapeamento:
         for i, o in enumerate(lista, 1):
