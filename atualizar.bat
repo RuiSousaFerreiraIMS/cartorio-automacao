@@ -2,17 +2,27 @@
 REM ============================================================
 REM  Cartorio - ATUALIZAR a app para a ultima versao.
 REM  Duplo-clique num PC das funcionarias para apanhar as
-REM  ultimas correcoes do GitHub. Nao mexe em nada do trabalho
-REM  delas (o campos.json e os logs ficam de fora do git).
+REM  ultimas correcoes do GitHub.
+REM
+REM  Usa fetch + reset --hard (nao git pull): poe o codigo
+REM  EXATAMENTE igual ao GitHub, mesmo que o repositorio local
+REM  esteja num estado estranho. NAO mexe no trabalho delas: o
+REM  campos.json, os logs e o .venv estao fora do git.
 REM ============================================================
 cd /d "%~dp0"
 
 echo.
 echo ============================================================
-echo  A atualizar a app (git pull)...
+echo  A atualizar a app...
 echo ============================================================
-git pull
+git fetch origin
 if errorlevel 1 goto :erro
+git reset --hard origin/main
+if errorlevel 1 goto :erro
+
+echo.
+echo  A limpar cache do Python...
+for /d /r %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d"
 
 echo.
 echo  A confirmar dependencias (pode demorar uns segundos)...
@@ -31,10 +41,10 @@ exit /b 0
 :erro
 echo.
 echo ============================================================
-echo  O git pull FALHOU. Causas comuns:
+echo  FALHOU a ligacao ao GitHub. Causas comuns:
 echo   - Sem internet.
-echo   - Pediu utilizador/password do GitHub (o token pode ter
-REM     expirado): nesse caso avisa o Rui.
+echo   - Pediu utilizador/password (o token pode ter expirado):
+echo     nesse caso avisa o Rui.
 echo ============================================================
 pause
 exit /b 1
