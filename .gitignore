@@ -38,3 +38,10 @@ relatorio_pai_*.md
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Reportes de problemas: evidencia com dados pessoais (prints, campos.json).
+# NAO versionar nada, EXCETO o LEIA-ME e o _TEMPLATE.
+reportes/*
+!reportes/LEIA-ME.md
+!reportes/_TEMPLATE
+!reportes/_TEMPLATE/**
