@@ -365,11 +365,48 @@ def _chamar_llm(texto: str, prompt_sistema: str, modelo: str | None = None) -> d
     return dados
 
 
+# Defaults para os Outorgantes Externos: a Natureza do acto vem do tipo, e a
+# Qualidade de cada um vem do papel (a funcionaria so ajusta casos especiais).
+_NATUREZA_POR_TIPO = {
+    "CV": "Compra e venda de imóveis",
+    "DOAC": "Doação",
+    "HAB": "Habilitação de herdeiros",
+    "PART": "Partilha",
+    "CONV": "Convenção antenupcial",
+    "JUST": "Justificação",
+}
+_QUALIDADE_POR_LISTA = {
+    "vendedores": "Vendedor", "compradores": "Comprador",
+    "doadores": "Doador", "donatarios": "Donatário",
+    "partilhantes": "Partilhante", "herdeiros": "Herdeiro",
+    "declarantes": "Declarante", "outorgantes": "Outorgante",
+    "justificantes": "Justificante", "confirmantes": "Confirmante",
+}
+
+
+def _aplicar_defaults_externos(obj):
+    """Preenche a Natureza do acto (pelo tipo) e a Qualidade de cada outorgante
+    (pelo papel), sem sobrescrever o que ja vier preenchido. So sao usados quando
+    a funcionaria marca alguem como externo, mas ficam prontos a partida."""
+    if getattr(obj, "natureza_acto", None) is None:
+        obj.natureza_acto = _NATUREZA_POR_TIPO.get(getattr(obj, "mnemonica", ""))
+    for la, papel in _QUALIDADE_POR_LISTA.items():
+        for o in getattr(obj, la, None) or []:
+            if not o.qualidade:
+                o.qualidade = papel
+    for ob in getattr(obj, "obitos", None) or []:      # herdeiros dentro dos obitos
+        for o in ob.herdeiros:
+            if not o.qualidade:
+                o.qualidade = "Herdeiro"
+    return obj
+
+
 def extrair_compra_venda(texto: str, modelo: str | None = None) -> CompraVenda:
     dados = _chamar_llm(texto, PROMPT_SISTEMA, modelo)
     _log("A validar com schema Pydantic...")
     cv = CompraVenda(**dados)
     cv.herdar_heranca_do_primeiro()  # heranca: naturalidade/morada/estado civil do 1o outorgante
+    _aplicar_defaults_externos(cv)
     cv.avisos = cv.validar_e_avisar()
     _log(f"  validacao OK. {len(cv.avisos)} aviso(s) gerado(s).")
     return cv
@@ -414,6 +451,7 @@ def extrair_doacao(texto: str, modelo: str | None = None) -> Doacao:
     dados = _chamar_llm(texto, PROMPT_DOACAO, modelo)
     _log("A validar com schema Doacao...")
     d = Doacao(**dados)
+    _aplicar_defaults_externos(d)
     d.avisos = d.validar_e_avisar()
     _log(f"  validacao OK. {len(d.avisos)} aviso(s) gerado(s).")
     return d
@@ -482,6 +520,7 @@ def extrair_habilitacao(texto: str, modelo: str | None = None) -> Habilitacao:
     dados = _chamar_llm(texto, PROMPT_HABILITACAO, modelo)
     _log("A validar com schema Habilitacao...")
     h = Habilitacao(**dados)
+    _aplicar_defaults_externos(h)
     h.avisos = h.validar_e_avisar()
     _log(f"  validacao OK. {len(h.avisos)} aviso(s) gerado(s).")
     return h
@@ -528,6 +567,7 @@ def extrair_partilha(texto: str, modelo: str | None = None) -> Partilha:
     dados = _chamar_llm(texto, PROMPT_PARTILHA, modelo)
     _log("A validar com schema Partilha...")
     p = Partilha(**dados)
+    _aplicar_defaults_externos(p)
     p.avisos = p.validar_e_avisar()
     _log(f"  validacao OK. {len(p.avisos)} aviso(s) gerado(s).")
     return p
@@ -566,6 +606,7 @@ def extrair_convencao(texto: str, modelo: str | None = None) -> Convencao:
     dados = _chamar_llm(texto, PROMPT_CONVENCAO, modelo)
     _log("A validar com schema Convencao...")
     c = Convencao(**dados)
+    _aplicar_defaults_externos(c)
     c.avisos = c.validar_e_avisar()
     _log(f"  validacao OK. {len(c.avisos)} aviso(s) gerado(s).")
     return c
@@ -603,6 +644,7 @@ def extrair_justificacao(texto: str, modelo: str | None = None) -> Justificacao:
     dados = _chamar_llm(texto, PROMPT_JUSTIFICACAO, modelo)
     _log("A validar com schema Justificacao...")
     j = Justificacao(**dados)
+    _aplicar_defaults_externos(j)
     j.avisos = j.validar_e_avisar()
     _log(f"  validacao OK. {len(j.avisos)} aviso(s) gerado(s).")
     return j
