@@ -11,6 +11,13 @@ REM  campos.json, os logs e o .venv estao fora do git.
 REM ============================================================
 cd /d "%~dp0"
 
+REM Parar a app se estiver a correr (senao continua com o codigo antigo em
+REM memoria e o erro volta ate se matar o processo). Liberta a porta 8501.
+echo  A parar a app (se estiver aberta)...
+for /f "tokens=5" %%p in ('netstat -aon ^| findstr ":8501" ^| findstr LISTENING') do (
+    taskkill /F /PID %%p >nul 2>nul
+)
+
 echo.
 echo ============================================================
 echo  A atualizar a app...

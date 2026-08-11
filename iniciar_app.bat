@@ -22,6 +22,15 @@ goto :sem_chave
 REM Ambiente pronto, arrancar
 call .venv\Scripts\activate.bat
 
+REM --- Parar QUALQUER servidor da app que tenha ficado a correr escondido -------
+REM Fechar o browser NAO para o Streamlit (o cartorio.vbs abre-o sem consola), e
+REM esse servidor fica com o codigo ANTIGO em memoria. Depois de um 'git pull' a
+REM app continuava a servir o velho ate se matar o processo. Aqui, antes de abrir,
+REM libertamos a porta 8501 (mata o servidor antigo) para arrancar sempre limpo.
+for /f "tokens=5" %%p in ('netstat -aon ^| findstr ":8501" ^| findstr LISTENING') do (
+    taskkill /F /PID %%p >nul 2>nul
+)
+
 REM --- Streamlit: saltar o prompt de email do 1o arranque ----------------------
 REM Sem este ficheiro, o Streamlit pergunta um email na consola no primeiro
 REM arranque e FICA PRESO a espera (a consola esta escondida pelo cartorio.vbs,
