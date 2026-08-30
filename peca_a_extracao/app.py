@@ -25,8 +25,11 @@ import hashlib
 import json
 import os
 import tempfile
+import traceback
 
 import streamlit as st
+
+from reporte import enviar_reporte
 
 from extrator import (
     TIPOS_ATO, detetar_tipo_por_texto, extrair_texto, ler_documento,
@@ -383,12 +386,64 @@ def render_sidebar(obj, nome_ficheiro):
         </div>
         """, unsafe_allow_html=True)
 
+        # Reportar problema (envia-me o caso por email)
+        _render_reporte_sidebar()
+
         # Botão simular nova extração
         if st.button("↺ Simular nova extração", use_container_width=True, key="reset_btn"):
             for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado",
-                      "robo_feitos", "robo_last_status", "texto_escritura", "tipo_ato"):
+                      "robo_feitos", "robo_last_status", "texto_escritura", "tipo_ato",
+                      "ficheiro_bytes", "ultimo_erro"):
                 st.session_state.pop(k, None)
             st.rerun()
+
+
+def _render_reporte_sidebar():
+    """Expander na sidebar: descreve o problema -> junta escritura+campos+erro e
+    envia-me por email (com copia local em reportes/). Fica sempre disponivel,
+    mesmo quando a extracao rebentou (obj is None)."""
+    tem_erro = bool(st.session_state.get("ultimo_erro"))
+    rotulo = "🐞 Reportar problema" + ("  ⚠" if tem_erro else "")
+    with st.expander(rotulo, expanded=tem_erro):
+        if tem_erro:
+            st.caption("Deu um erro. Descreve o que estavas a fazer e envia, que eu recebo tudo.")
+        else:
+            st.caption("Algo errado com esta escritura? Descreve e envia-me o caso.")
+        desc = st.text_area(
+            "O que correu mal?", key="reporte_desc", height=90,
+            placeholder="Ex: o comprador saiu como vendedor / faltou o NIF do cônjuge / rebentou ao carregar...",
+        )
+        if st.button("📨 Enviar reporte ao Rui", use_container_width=True, key="reporte_btn"):
+            if not (desc or "").strip():
+                st.warning("Escreve uma breve descrição primeiro.")
+            else:
+                _obj = st.session_state.get("obj")
+                campos_json = None
+                if _obj is not None:
+                    try:
+                        campos_json = _obj.model_dump_json(indent=2)
+                    except Exception:
+                        campos_json = None
+                if campos_json is None:
+                    try:
+                        with open(CAMINHO_JSON, encoding="utf-8") as f:
+                            campos_json = f.read()
+                    except Exception:
+                        campos_json = None
+                with st.spinner("A enviar..."):
+                    ok, msg = enviar_reporte(
+                        descricao=desc,
+                        nome_ficheiro=st.session_state.get("nome_ficheiro"),
+                        ficheiro_bytes=st.session_state.get("ficheiro_bytes"),
+                        campos_json=campos_json,
+                        texto_escritura=st.session_state.get("texto_escritura"),
+                        tipo_ato=st.session_state.get("tipo_ato"),
+                        erro=st.session_state.get("ultimo_erro"),
+                    )
+                if ok:
+                    st.success(msg)
+                else:
+                    st.warning(msg)
 
 
 def _passo(num, label, completo, ativo, exportado=False):
@@ -1227,31 +1282,43 @@ if obj is None:
         """, unsafe_allow_html=True)
         st.stop()
 
+    # Guardar os bytes originais JA (para o "Reportar problema" poder anexar a
+    # escritura, mesmo que a extracao rebente a seguir).
+    st.session_state.ficheiro_bytes = ficheiro.getvalue()
+    st.session_state.nome_ficheiro = ficheiro.name
+
     with st.status(f"A extrair campos de {ficheiro.name}...", expanded=True) as status:
         st.write("A ler o documento...")
         sufixo = os.path.splitext(ficheiro.name)[1].lower() or ".docx"
         with tempfile.NamedTemporaryFile(delete=False, suffix=sufixo) as tmp:
-            tmp.write(ficheiro.read())
+            tmp.write(st.session_state.ficheiro_bytes)
             caminho_tmp = tmp.name
         try:
             # Ler o texto UMA vez e detetar o tipo pelo CONTEUDO (o nome do
             # temporario e' aleatorio, por isso nao serve para detetar o tipo).
             texto = ler_documento(caminho_tmp)
+            st.session_state.texto_escritura = texto  # guardar ja, ajuda o reporte
+        except Exception as e:
+            st.session_state.ultimo_erro = traceback.format_exc()
+            st.error(f"Erro a ler o documento: {e}")
+            st.info("Usa **🐞 Reportar problema** na barra lateral para me enviares o caso.")
+            st.stop()
         finally:
             os.unlink(caminho_tmp)
         tipo = detetar_tipo_por_texto(texto)
         try:
             st.write(f"A extrair como **{dict(TIPOS_ATO)[tipo]}** (podes corrigir a seguir)...")
             st.session_state.obj = extrair_texto(texto, tipo)
-            st.session_state.texto_escritura = texto
             st.session_state.tipo_ato = tipo
-            st.session_state.nome_ficheiro = ficheiro.name
             st.session_state.ts_extracao = (
                 "Extraído às " + datetime.datetime.now().strftime("%H:%M · %d %b %Y").lower()
             )
+            st.session_state.pop("ultimo_erro", None)  # correu bem, limpar erro anterior
             status.update(label="Extração concluída!", state="complete", expanded=False)
         except Exception as e:
+            st.session_state.ultimo_erro = traceback.format_exc()
             st.error(f"Erro na extração: {e}")
+            st.info("Usa **🐞 Reportar problema** na barra lateral para me enviares o caso.")
             st.stop()
     st.rerun()
 
