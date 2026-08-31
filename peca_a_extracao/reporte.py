@@ -128,12 +128,30 @@ def _enviar_email(zip_bytes, descricao, nome_ficheiro, tipo_ato) -> None:
     msg.add_attachment(zip_bytes, maintype="application", subtype="zip",
                        filename=f"reporte_{stamp}.zip")
 
-    ctx = ssl.create_default_context()
     host = os.environ.get("REPORT_EMAIL_HOST", "smtp.gmail.com")
     port = int(os.environ.get("REPORT_EMAIL_PORT", "465"))
-    with smtplib.SMTP_SSL(host, port, context=ctx, timeout=30) as s:
-        s.login(user, pw)
-        s.send_message(msg)
+
+    def _send(context):
+        with smtplib.SMTP_SSL(host, port, context=context, timeout=30) as s:
+            s.login(user, pw)
+            s.send_message(msg)
+
+    # Alguns PCs tem antivirus/firewall a INSPECIONAR o TLS: metem um certificado
+    # proprio que o Python rejeita ([SSL: CERTIFICATE_VERIFY_FAILED]). Tentamos
+    # primeiro a ligacao SEGURA (verificada); so se falhar POR CAUSA DO CERTIFICADO
+    # (ou se REPORT_EMAIL_INSECURE=1) repetimos sem verificar a cadeia. A ligacao
+    # continua encriptada; apenas nao se valida o certificado.
+    forcar_inseguro = os.environ.get("REPORT_EMAIL_INSECURE", "").strip() in ("1", "true", "True")
+    if not forcar_inseguro:
+        try:
+            _send(ssl.create_default_context())
+            return
+        except ssl.SSLError:
+            pass  # cai para o fallback sem verificacao
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    _send(ctx)
 
 
 def enviar_reporte(descricao, nome_ficheiro=None, ficheiro_bytes=None,
