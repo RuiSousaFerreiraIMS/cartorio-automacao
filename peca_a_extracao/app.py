@@ -202,6 +202,46 @@ st.markdown(f"""
 
   /* ─── ALERTS Streamlit defaults (escondidos a favor dos custom) ─── */
   .stAlert {{ display:none; }}
+
+  /* ─── Botao "Reportar problema" (expander na sidebar): dar-lhe presenca ─── */
+  /* DOM novo do expander: <details><summary> */
+  section[data-testid="stSidebar"] [data-testid="stExpander"] details {{
+    border:1px solid rgba(239,68,68,.55) !important;
+    border-radius:9px !important;
+    background:rgba(239,68,68,.13) !important;
+    box-shadow:0 1px 6px rgba(0,0,0,.22);
+    overflow:hidden;
+  }}
+  section[data-testid="stSidebar"] [data-testid="stExpander"] summary {{
+    padding:11px 13px !important;
+    font-weight:700 !important;
+    font-size:13px !important;
+    color:#FCA5A5 !important;
+    letter-spacing:.01em;
+    transition:background .12s ease, color .12s ease;
+  }}
+  section[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {{
+    background:rgba(239,68,68,.24) !important;
+    color:#FEE2E2 !important;
+    cursor:pointer;
+  }}
+  section[data-testid="stSidebar"] [data-testid="stExpander"] summary svg {{
+    fill:#FCA5A5 !important;
+  }}
+  /* DOM antigo do expander (versoes mais velhas do Streamlit) */
+  section[data-testid="stSidebar"] .streamlit-expanderHeader {{
+    border:1px solid rgba(239,68,68,.55) !important;
+    border-radius:9px !important;
+    background:rgba(239,68,68,.13) !important;
+    font-weight:700 !important;
+    font-size:13px !important;
+    color:#FCA5A5 !important;
+    padding:11px 13px !important;
+  }}
+  section[data-testid="stSidebar"] .streamlit-expanderHeader:hover {{
+    background:rgba(239,68,68,.24) !important;
+    color:#FEE2E2 !important;
+  }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -418,14 +458,24 @@ def _render_reporte_sidebar():
     rotulo = "🐞 Reportar problema" + ("  ⚠" if tem_erro else "")
     # Manter aberto se houve erro OU se ha um resultado para mostrar.
     with st.expander(rotulo, expanded=tem_erro or bool(resultado)):
-        # Confirmacao do ultimo envio (persiste ate enviar de novo).
+        # Confirmacao do ultimo envio (persiste ate enviar de novo). HTML proprio
+        # porque os alertas nativos (.stAlert) estao escondidos por CSS global.
         if resultado:
             if resultado["ok"]:
-                st.success("✅ Reporte enviado ao Rui. Obrigado!")
-                st.caption(resultado["msg"])
+                st.markdown(
+                    '<div style="background:rgba(22,163,74,.16);'
+                    'border:1px solid rgba(22,163,74,.55); color:#4ADE80;'
+                    'padding:9px 11px; border-radius:7px; font-size:12px;'
+                    'font-weight:600; margin-bottom:8px;">✅ Reporte enviado ao Rui. Obrigado!</div>',
+                    unsafe_allow_html=True)
             else:
-                st.warning("⚠ Não deu para enviar o email, mas ficou guardado no PC.")
-                st.caption(resultado["msg"])
+                st.markdown(
+                    '<div style="background:rgba(239,68,68,.16);'
+                    'border:1px solid rgba(239,68,68,.55); color:#FCA5A5;'
+                    'padding:9px 11px; border-radius:7px; font-size:12px;'
+                    'font-weight:600; margin-bottom:8px;">⚠ Email não saiu, mas ficou guardado no PC.</div>',
+                    unsafe_allow_html=True)
+            st.caption(resultado["msg"])
 
         if tem_erro:
             st.caption("Deu um erro. Descreve o que estavas a fazer e envia, que eu recebo tudo.")
@@ -437,7 +487,8 @@ def _render_reporte_sidebar():
         )
         if st.button("📨 Enviar reporte ao Rui", use_container_width=True, key="reporte_btn"):
             if not (desc or "").strip():
-                st.warning("Escreve uma breve descrição primeiro.")
+                if hasattr(st, "toast"):
+                    st.toast("Escreve uma breve descrição primeiro.")
             else:
                 _obj = st.session_state.get("obj")
                 campos_json = None

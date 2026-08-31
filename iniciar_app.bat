@@ -28,8 +28,11 @@ REM esse servidor fica com o codigo ANTIGO em memoria. Depois de um 'git pull' a
 REM app continuava a servir o velho ate se matar o processo. Aqui, antes de abrir,
 REM libertamos a porta 8501 (mata o servidor antigo) para arrancar sempre limpo.
 for /f "tokens=5" %%p in ('netstat -aon ^| findstr ":8501" ^| findstr LISTENING') do (
-    taskkill /F /PID %%p >nul 2>nul
+    taskkill /F /T /PID %%p >nul 2>nul
 )
+REM Rede de seguranca: apanhar tambem um python-filho orfao do Streamlit desta app
+REM (o servidor as vezes deixa um segundo processo que nao ouve na porta).
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -match 'streamlit' -and $_.CommandLine -match 'app.py' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>nul
 
 REM --- Auto-atualizar do GitHub (silencioso e a prova de falhas) ---------------
 REM Abrir a app passa a trazer sempre a ultima versao: a funcionaria NAO tem de
