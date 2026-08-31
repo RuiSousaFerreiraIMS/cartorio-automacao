@@ -393,7 +393,7 @@ def render_sidebar(obj, nome_ficheiro):
         if st.button("↺ Simular nova extração", use_container_width=True, key="reset_btn"):
             for k in ("obj", "nome_ficheiro", "ts_extracao", "exportado",
                       "robo_feitos", "robo_last_status", "texto_escritura", "tipo_ato",
-                      "ficheiro_bytes", "ultimo_erro"):
+                      "ficheiro_bytes", "ultimo_erro", "reporte_resultado"):
                 st.session_state.pop(k, None)
             st.rerun()
 
@@ -402,9 +402,31 @@ def _render_reporte_sidebar():
     """Expander na sidebar: descreve o problema -> junta escritura+campos+erro e
     envia-me por email (com copia local em reportes/). Fica sempre disponivel,
     mesmo quando a extracao rebentou (obj is None)."""
+    # Toast pendente (mostra-se UMA vez, logo apos enviar). Flutua sobre o ecra,
+    # impossivel de falhar.
+    _toast = st.session_state.pop("reporte_toast", None)
+    if _toast and hasattr(st, "toast"):
+        st.toast(_toast)
+
+    # Limpar a caixa de texto depois de um envio com sucesso (feito ANTES de criar
+    # o widget, senao o Streamlit nao deixa mexer na key ja instanciada).
+    if st.session_state.pop("reporte_limpar", False):
+        st.session_state.pop("reporte_desc", None)
+
     tem_erro = bool(st.session_state.get("ultimo_erro"))
+    resultado = st.session_state.get("reporte_resultado")
     rotulo = "🐞 Reportar problema" + ("  ⚠" if tem_erro else "")
-    with st.expander(rotulo, expanded=tem_erro):
+    # Manter aberto se houve erro OU se ha um resultado para mostrar.
+    with st.expander(rotulo, expanded=tem_erro or bool(resultado)):
+        # Confirmacao do ultimo envio (persiste ate enviar de novo).
+        if resultado:
+            if resultado["ok"]:
+                st.success("✅ Reporte enviado ao Rui. Obrigado!")
+                st.caption(resultado["msg"])
+            else:
+                st.warning("⚠ Não deu para enviar o email, mas ficou guardado no PC.")
+                st.caption(resultado["msg"])
+
         if tem_erro:
             st.caption("Deu um erro. Descreve o que estavas a fazer e envia, que eu recebo tudo.")
         else:
@@ -440,10 +462,14 @@ def _render_reporte_sidebar():
                         tipo_ato=st.session_state.get("tipo_ato"),
                         erro=st.session_state.get("ultimo_erro"),
                     )
+                st.session_state.reporte_resultado = {"ok": ok, "msg": msg}
+                st.session_state.reporte_toast = (
+                    "✅ Reporte enviado ao Rui!" if ok
+                    else "⚠ Email falhou. Guardado no PC (pasta reportes)."
+                )
                 if ok:
-                    st.success(msg)
-                else:
-                    st.warning(msg)
+                    st.session_state.reporte_limpar = True   # limpar a caixa
+                st.rerun()
 
 
 def _passo(num, label, completo, ativo, exportado=False):
