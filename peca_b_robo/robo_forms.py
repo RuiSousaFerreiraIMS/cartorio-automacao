@@ -131,8 +131,14 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
     # naturalidade_concelho (e assume a morada no mesmo pais, por falta de melhor).
     nat_pais = o.get("naturalidade_pais")
     mor_pais = o.get("morada_pais")
-    if not nat_pais and o.get("nacionalidade"):
-        nat_pais = o.get("naturalidade") or o.get("naturalidade_concelho")
+    # Fallback para dados antigos sem naturalidade_pais: SO quando a nacionalidade
+    # e' claramente ESTRANGEIRA. NUNCA para portugueses e NUNCA usar o concelho como
+    # pais: senao um portugues (ex: concelho "Alcobaca") era tratado como estrangeiro
+    # e "alcobaca" escrito no dropdown de Pais saltava para "Albania".
+    _nac = (o.get("nacionalidade") or "").strip().lower()
+    _nac_estrangeira = bool(_nac) and not _nac.startswith("portug")
+    if not nat_pais and _nac_estrangeira:
+        nat_pais = o.get("naturalidade")  # campo livre; nunca o concelho (e' PT)
         if not mor_pais:
             mor_pais = nat_pais
     nat_estrangeira = bool(nat_pais)
