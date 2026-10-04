@@ -27,8 +27,14 @@ def _heranca_e_coletivo(nif) -> bool:
 
 
 class _Base(BaseModel):
-    """Base comum: re-valida em cada reassignment (importante para a app Streamlit)."""
-    model_config = ConfigDict(validate_assignment=True)
+    """Base comum: re-valida em cada reassignment (importante para a app Streamlit).
+
+    `coerce_numbers_to_str`: o LLM as vezes devolve campos de texto como NUMERO
+    (ex: o NIF 135470218 vem int em vez de "135470218") e o Pydantic 2.x rejeita
+    com string_type, rebentando a extracao. Converter numeros em texto resolve isso
+    para TODOS os campos str de TODOS os modelos de uma vez.
+    """
+    model_config = ConfigDict(validate_assignment=True, coerce_numbers_to_str=True)
 
 
 def _sem_acentos(s: str) -> str:
