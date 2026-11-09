@@ -199,11 +199,19 @@ def v_api_online() -> None:
     try:
         import anthropic
         cliente = anthropic.Anthropic(api_key=chave)
-        modelo = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
+        # Mesmo modelo (e mesma reserva) que o extrator usa.
+        modelo = os.environ.get("ANTHROPIC_MODEL") or "claude-sonnet-5-5"
         # count_tokens e' GRATIS e confirma que a chave autentica (401 se estiver ma).
-        r = cliente.with_options(timeout=30.0, max_retries=0).messages.count_tokens(
-            model=modelo, messages=[{"role": "user", "content": "ok"}],
-        )
+        try:
+            r = cliente.with_options(timeout=30.0, max_retries=0).messages.count_tokens(
+                model=modelo, messages=[{"role": "user", "content": "ok"}],
+            )
+        except (anthropic.NotFoundError, anthropic.PermissionDeniedError,
+                anthropic.BadRequestError):
+            modelo = "claude-haiku-4-5 (reserva)"
+            r = cliente.with_options(timeout=30.0, max_retries=0).messages.count_tokens(
+                model="claude-haiku-4-5", messages=[{"role": "user", "content": "ok"}],
+            )
         _reg("Teste a' API (internet)", OK,
              f"chave valida, modelo {modelo} responde ({r.input_tokens} tokens)")
     except Exception as e:

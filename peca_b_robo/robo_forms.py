@@ -21,6 +21,7 @@ from robo_actions import (
     escrever,
     escrever_dropdown,
     escrever_unicode,
+    freguesia_simn,
     ler_campo_atual,
     selecionar_pais_dropdown,
     tab,
@@ -189,8 +190,8 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
         tab()  # confirma
     tab()      # avanca -> Freguesia
     # 6. Naturalidade Freguesia (dropdown de ESCRITA). Idem: NUNCA se estrangeira.
-    if not nat_estrangeira and o.get("naturalidade_freguesia"):
-        escrever_dropdown(o["naturalidade_freguesia"])
+    if not nat_estrangeira and freguesia_simn(o.get("naturalidade_freguesia")):
+        escrever_dropdown(freguesia_simn(o["naturalidade_freguesia"]))
         tab()  # confirma
     tab()      # avanca -> Pais
     # 7. Naturalidade Pais (dropdown de SELECAO). Portugues: deixar (Portugal), so
@@ -224,8 +225,8 @@ def preencher_outorgante(o: dict[str, Any]) -> str:
         tab()  # confirma
     tab()      # avanca -> Morada Freguesia
     # 15. Morada Freguesia (dropdown de ESCRITA). Idem: NUNCA se a morada e' fora.
-    if not mor_estrangeira and o.get("morada_freguesia"):
-        escrever_dropdown(o["morada_freguesia"])
+    if not mor_estrangeira and freguesia_simn(o.get("morada_freguesia")):
+        escrever_dropdown(freguesia_simn(o["morada_freguesia"]))
         tab()  # confirma
     tab()      # avanca -> Morada Pais
     # O form "Autor da heranca" tem 1 stop A MAIS aqui (teste 2026-07-10, Rui): sem
@@ -350,8 +351,8 @@ def preencher_empresa(o: dict[str, Any]) -> str:
         tab()                    # confirma
     tab()                        # 14 -> 15 Freguesia
     # 15. Freguesia (dropdown de ESCRITA)
-    if o.get("morada_freguesia"):
-        escrever_dropdown(o["morada_freguesia"])
+    if freguesia_simn(o.get("morada_freguesia")):
+        escrever_dropdown(freguesia_simn(o["morada_freguesia"]))
         tab()                    # confirma
     # Pais (Portugal) e Ident. Conservatoria: deixar para a funcionaria. Fim.
     return "preenchido"
@@ -415,8 +416,9 @@ def preencher_bem(b: dict[str, Any]) -> str:
         tab()  # confirma
     tab()      # avanca -> Freguesia
     # Freguesia (dropdown de escrita)
-    if b.get("freguesia"):
-        escrever_dropdown(b["freguesia"])
+    # Uniao de freguesias -> freguesia_simn da None -> nao escreve (funcionaria escolhe).
+    if freguesia_simn(b.get("freguesia")):
+        escrever_dropdown(freguesia_simn(b["freguesia"]))
         tab()  # confirma
     tab()      # avanca -> Moradas
 
@@ -444,6 +446,9 @@ def preencher_bem(b: dict[str, Any]) -> str:
     escrever(b.get("designacao_fracao", ""))
     tab()       # -> 02 Seccao
 
+    # 02 Seccao (texto): seccao cadastral do rustico ('artigo 30.º seccao P1-P2').
+    # Reporte nov/2026: faltava e a funcionaria tinha de a meter a mao.
+    escrever(b.get("seccao", ""))
     # 02,03: Seccao, Arvore -> saltar ate a Data do registo de inscricao (04).
     tab(2)      # 02 -> 04 (Data registo inscricao)
 

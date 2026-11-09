@@ -51,7 +51,12 @@ def _provider_info() -> str:
     if prov == "groq":
         return f"groq / {os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')}"
     if prov in ("claude", "anthropic"):
-        return f"claude / {os.environ.get('ANTHROPIC_MODEL', 'claude-haiku-4-5')}"
+        try:  # o modelo que REALMENTE respondeu (pode ter caido na reserva)
+            import extrator
+            modelo = extrator.ultimo_modelo or extrator.modelo_claude_configurado()
+        except Exception:
+            modelo = os.environ.get("ANTHROPIC_MODEL") or "?"
+        return f"claude / {modelo}"
     return f"gemini / {os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')}"
 
 

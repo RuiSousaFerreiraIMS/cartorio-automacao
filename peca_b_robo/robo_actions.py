@@ -162,6 +162,33 @@ def escrever_dropdown(valor: str | None) -> None:
         time.sleep(0.35)  # deixar o popup do autocomplete abrir e estabilizar
 
 
+# UNIOES DE FREGUESIAS (reforma de 2013). Reportes nov/2026: escrever
+# "alcobaca e vestiaria" ou "coz, alpedriz e montes" fazia o combo (busca por
+# PREFIXO) parar na freguesia EXTINTA "Alcobaca"/"Coz", que continua na lista.
+# Nao sabemos o texto exato com que o SIMN lista as unioes (provavelmente "Uniao
+# das freguesias de X e Y", NAO confirmado) e escrever um texto que nao exista
+# pode nao abrir o popup e desalinhar os Tabs do form. Por isso, numa uniao o robo
+# NAO escreve a freguesia (mesmo caminho, ja testado, de freguesia vazia) e a
+# funcionaria escolhe-a a mao (a app avisa). Quando se souber o texto exato, pode
+# por-se aqui o prefixo e devolve-lo em freguesia_simn.
+def e_uniao_freguesias(nome: str | None) -> bool:
+    """True se o nome e' de uma uniao de freguesias ('X e Y', 'X, Y e Z', 'Uniao ...')."""
+    import re
+    s = re.sub(r"\s+", " ", str(nome or "")).strip().lower()
+    return bool(s) and (s.startswith(("união", "uniao")) or "," in s or " e " in f" {s} ")
+
+
+def freguesia_simn(nome: str | None) -> str | None:
+    """Valor a escrever no dropdown Freguesia do SIMN, ou None para NAO escrever.
+
+    None quando vazio ou quando e' uma uniao de freguesias (ver nota acima): quem
+    chama so escreve (e so da o Tab de confirmacao) se isto devolver texto.
+    """
+    if not nome or e_uniao_freguesias(nome):
+        return None
+    return str(nome).strip()
+
+
 def selecionar_pais_dropdown(valor: str | None) -> None:
     """Dropdown de PAIS (Naturalidade/Morada): combo de SELECAO (NAO editavel),
     lista alfabetica SENSIVEL A ACENTOS. Escreve-se so a PRIMEIRA PALAVRA do pais

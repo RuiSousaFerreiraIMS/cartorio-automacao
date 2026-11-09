@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -108,6 +109,45 @@ def ler_documento(caminho: str) -> str:
     return texto
 
 
+# Regras dos BENS, iguais para TODOS os atos com bens (CV, doacao, partilha,
+# justificacao). Antes so o prompt da CV as tinha: nas doacoes o LLM metia o texto
+# do predio na descricao_predial e o numero no codigo_simn (reportes nov/2026).
+_REGRAS_BENS = """
+Regras dos BENS (cada imovel e' um objeto em "bens", com estes campos:
+designacao_fracao, descricao_predial, certidao_predial, artigo_matricial, seccao,
+data_inscricao_matriz, freguesia, concelho, tipo, valor_patrimonial, morada, codigo_simn,
+descricao_livre):
+- UM BEM POR ARTIGO MATRICIAL: no SIMN cada artigo e' um bem. Se um predio estiver inscrito
+  sob VARIOS artigos ("inscrito na matriz sob os artigos 2594.º e 2595.º, com os valores
+  patrimoniais de 138,82 E e 138,82 E"), cria UM bem POR CADA artigo, todos com a mesma
+  descricao_predial/freguesia/concelho/morada, e cada um com o SEU valor_patrimonial (pela
+  mesma ordem). Se forem varios predios ("UM - ...", "DOIS - ..."), um bem por cada.
+- descricao_predial: SO o NUMERO com que o predio/fracao esta descrito na Conservatoria do
+  Registo Predial. Vem quase sempre POR EXTENSO e seguido da freguesia ("descrito na
+  Conservatoria ... com o numero cinco mil duzentos e oitenta e oito / Nazare" = "5288").
+  CONVERTE para digitos e NAO incluas a freguesia. NUNCA ponhas aqui texto descritivo do
+  predio (isso vai em descricao_livre). Se o texto disser que o predio e' OMISSO na
+  Conservatoria, poe "omisso" (NAO uses o numero do artigo). Obrigatorio no SIMN.
+- artigo_matricial: SO o numero do artigo, sem ".º" (ex "8608"; com "P" se for provisorio,
+  ex "P11040"). Se o texto disser "artigo 30.º seccao P1-P2", artigo_matricial = "30" e
+  seccao = "P1-P2". Se nao houver seccao, seccao = null.
+- data_inscricao_matriz: SO relevante quando o artigo comeca por "P" (predio participado,
+  ainda provisorio). A escritura diz "declaracao para inscricao ... apresentada no Servico de
+  Financas de X em DD/MM/AAAA". Extrai essa DATA como AAAA-MM-DD. Senao null.
+- freguesia / concelho: do predio, tal e qual a escritura os escreve (ex "Coz, Alpedriz e
+  Montes"; "Alcobaca e Vestiaria"). Uma uniao de freguesias escreve-se COMPLETA, nunca so a
+  primeira freguesia.
+- tipo: "U" se a escritura disser predio URBANO ou for uma FRACAO autonoma; "R" se disser
+  predio RUSTICO; "M" se misto. NUNCA assumas "U" por defeito.
+- designacao_fracao: SO se a escritura designar EXPLICITAMENTE uma fracao autonoma ("Fracao
+  Autonoma designada pela letra C" -> "C"). Predio sem fracao -> null. Nunca inventes.
+- valor_patrimonial: o VPT em euros ("98.062,12 E" -> 98062.12).
+- certidao_predial: o codigo da Certidao Predial Permanente (ex "PP-3522-60025-101102-005288").
+- descricao_livre: o texto descritivo do bem (composicao, confrontacoes).
+- codigo_simn: deixa SEMPRE null (e' interno do SIMN, nao vem da escritura).
+"""
+
+
 PROMPT_SISTEMA = """Es um extrator de dados de escrituras notariais portuguesas de COMPRA E VENDA.
 Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
 (sem texto antes ou depois, sem ```), com esta estrutura:
@@ -127,7 +167,7 @@ Recebes o texto de uma escritura e devolves APENAS um objeto JSON valido
   "compradores": [ ... igual aos vendedores ... ],
   "heranca": null,
   "bens": [{"designacao_fracao": "P", "descricao_predial": "...",
-            "certidao_predial": "...", "artigo_matricial": "...",
+            "certidao_predial": "...", "artigo_matricial": "...", "seccao": null,
             "data_inscricao_matriz": null,
             "freguesia": "...", "concelho": "...", "tipo": "U",
             "valor_patrimonial": 100504.66, "morada": "...",
@@ -199,37 +239,20 @@ Regras importantes:
   morada_freguesia a NULL (a rua fica na morada, a localidade estrangeira em morada_localidade).
   DECIDE pela MORADA, nao pela nacionalidade: um PORTUGUES pode morar fora (naturalidade em
   Portugal, mas morada_pais preenchido). Para quem mora em Portugal, deixa morada_pais null.
-- descricao_predial: o NUMERO com que o predio/fracao esta descrito na Conservatoria. Vem quase
-  sempre POR EXTENSO ("descrito na Conservatoria... com o numero seis mil duzentos e setenta e
-  um" = "6271"). CONVERTE para digitos. Se a escritura disser que o predio e OMISSO/nao descrito,
-  poe "omisso". E OBRIGATORIO no SIMN (campo Nº Registo), esforca-te por o obter.
-- data_inscricao_matriz: SO relevante quando o artigo matricial comeca por "P" (ex "P11040"),
-  que significa predio participado/provisorio ainda em inscricao. Nesse caso a escritura diz algo
-  como "declaracao para inscricao ... apresentada no Servico de Financas de X em DD/MM/AAAA, com
-  o registo numero N". Extrai essa DATA no formato AAAA-MM-DD (ex "2026-04-25"). Se o artigo NAO
-  comeca por P, ou nao ha essa data, poe null.
-- tipo: "U" se a escritura disser predio URBANO ou for uma FRACAO autonoma (as fracoes sao
-  sempre de predios urbanos em propriedade horizontal); "R" se disser predio RUSTICO; "M" se
-  misto. LE a designacao real do predio ("Predio rustico sito em..." -> "R"; "Predio urbano..."
-  ou "Fracao Autonoma..." -> "U"). NUNCA assumas "U" por defeito: se diz rustico, e' "R".
-- designacao_fracao: SO preencher se a escritura designar EXPLICITAMENTE uma fracao autonoma
-  ("Fracao Autonoma designada pela letra X" -> "X"). Se for um predio (urbano ou rustico) SEM
-  fracao, poe null. NUNCA inventes nem deduzas uma letra.
+- BENS: ver as "Regras dos BENS" no fim.
 - preco_venda: o valor por extenso na escritura (ex "DUZENTOS E OITENTA MIL EUROS" = 280000.0).
-- valor_patrimonial: o VPT da fracao se mencionado.
 - hipoteca_a_cancelar: true se o texto fala em cancelamento de hipoteca existente.
 - ducs: extrai os "Documento numero ..." do Arquivo (IMT e TGIS/imposto do selo). Para cada
   DUC: numero (o nº do documento), tipo ("IMT" ou "IS"), montante (o valor em euros SE a
   escritura o indicar, senao null) e data (data do documento, se indicada). O notario passou a
   incluir o valor do DUC, por isso EXTRAI o montante quando aparecer; se nao aparecer, null.
-- codigo_simn: deixa SEMPRE null (e interno do SIMN, nao vem da escritura).
 - heranca: se a escritura referir "NIF da Heranca - XXX" (ou "NIF heranca"), preenche aqui UM
   outorgante que representa a heranca indivisa: nif = o numero (so digitos, sem espacos); nome =
   "Heranca" seguido do nome do falecido se aparecer no texto (ex "Heranca de Carlota da Conceicao
   Serra"); e_empresa = false (o sistema corrige sozinho pela regra do NIF). Deixa os campos
   pessoais (estado_civil, naturalidade, morada, etc) null. Se NAO houver "NIF da Heranca", poe null.
 - Se nao encontrares um campo, poe null. NUNCA inventes.
-"""
+""" + _REGRAS_BENS
 
 
 # Guarda a ultima resposta crua do LLM para debug em caso de falha de validacao.
@@ -323,26 +346,27 @@ def _extrair_json(texto: str) -> str:
     return t
 
 
-def _chamar_claude(texto: str, prompt_sistema: str, modelo: str | None = None) -> dict:
-    """Chamada a Claude (Anthropic). Devolve o dict extraido.
+# Modelo Claude por defeito (nov/2026): Sonnet, porque o Haiku errava interpretacoes
+# (2o donatario esquecido, artigo posto como descricao). Se o Sonnet falhar por
+# modelo indisponivel/sem acesso ou por demorar demais, repete-se com o Haiku
+# (o modelo de antes), para a app nunca ficar pior do que estava.
+MODELO_CLAUDE = "claude-sonnet-5-5"
+MODELO_CLAUDE_RESERVA = "claude-haiku-4-5"
 
-    Modelo por defeito: claude-haiku-4-5 (barato e preciso para extracao).
-    Trocar via env var ANTHROPIC_MODEL (ex: claude-sonnet-5, claude-opus-4-8).
-    """
-    import anthropic  # import tardio: so obriga a instalar quem usa Claude
-    modelo = modelo or os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
-    # .strip(): se a chave foi setada com um \n ou espacos no fim, o SDK rebenta
-    # com "Illegal header value" antes de tocar na rede. Limpamos por seguranca.
-    client = anthropic.Anthropic(api_key=(os.environ.get("ANTHROPIC_API_KEY") or "").strip())
-    _log(f"A chamar Claude (modelo: {modelo}, ~{len(texto)} chars de input)...")
-    t0 = time.time()
+# Modelo que respondeu na ultima extracao (vai para o diagnostico dos reportes).
+ultimo_modelo: str | None = None
 
-    # Nao passamos temperature: os modelos Claude mais recentes (Opus 4.8, Sonnet 5)
-    # rejeitam esse parametro. Para extracao o resultado ja e estavel sem ele.
-    # timeout=60 + sem retries: por defeito o SDK espera ate 10 min e re-tenta 2x,
-    # o que parece "pendurado" se a rede bloquear api.anthropic.com. Assim o erro
-    # aparece em <1 min e diz-nos o que se passa.
-    resposta = client.with_options(timeout=60.0, max_retries=0).messages.create(
+
+def modelo_claude_configurado() -> str:
+    return (os.environ.get("ANTHROPIC_MODEL") or "").strip() or MODELO_CLAUDE
+
+
+def _pedido_claude(client, modelo: str, prompt_sistema: str, texto: str, timeout: float) -> str:
+    # Nao passamos temperature: os modelos Claude mais recentes rejeitam esse
+    # parametro. Para extracao o resultado ja e estavel sem ele.
+    # max_retries=0 + timeout curto: por defeito o SDK espera ate 10 min e re-tenta
+    # 2x, o que parece "pendurado" se a rede bloquear api.anthropic.com.
+    resposta = client.with_options(timeout=timeout, max_retries=0).messages.create(
         model=modelo,
         max_tokens=8000,
         system=(
@@ -352,7 +376,36 @@ def _chamar_claude(texto: str, prompt_sistema: str, modelo: str | None = None) -
         ),
         messages=[{"role": "user", "content": texto}],
     )
-    texto_resp = "".join(b.text for b in resposta.content if b.type == "text")
+    return "".join(b.text for b in resposta.content if b.type == "text")
+
+
+def _chamar_claude(texto: str, prompt_sistema: str, modelo: str | None = None) -> dict:
+    """Chamada a Claude (Anthropic). Devolve o dict extraido.
+
+    Modelo: `modelo` > env ANTHROPIC_MODEL > MODELO_CLAUDE. Com reserva automatica
+    para MODELO_CLAUDE_RESERVA se o principal nao estiver disponivel ou der timeout.
+    Erros de rede/chave NAO caem na reserva (falhariam igual): sobem logo.
+    """
+    global ultimo_modelo
+    import anthropic  # import tardio: so obriga a instalar quem usa Claude
+    modelo = modelo or modelo_claude_configurado()
+    # .strip(): se a chave foi setada com um \n ou espacos no fim, o SDK rebenta
+    # com "Illegal header value" antes de tocar na rede. Limpamos por seguranca.
+    client = anthropic.Anthropic(api_key=(os.environ.get("ANTHROPIC_API_KEY") or "").strip())
+    _log(f"A chamar Claude (modelo: {modelo}, ~{len(texto)} chars de input)...")
+    t0 = time.time()
+    try:
+        # O Sonnet escreve mais devagar que o Haiku: 120s chega para um JSON de 8k tokens.
+        texto_resp = _pedido_claude(client, modelo, prompt_sistema, texto, timeout=120.0)
+        ultimo_modelo = modelo
+    except (anthropic.NotFoundError, anthropic.PermissionDeniedError,
+            anthropic.BadRequestError, anthropic.APITimeoutError) as e:
+        if modelo == MODELO_CLAUDE_RESERVA:
+            raise
+        _log(f"  {modelo} falhou ({e.__class__.__name__}); a repetir com {MODELO_CLAUDE_RESERVA}...")
+        texto_resp = _pedido_claude(client, MODELO_CLAUDE_RESERVA, prompt_sistema, texto,
+                                    timeout=60.0)
+        ultimo_modelo = MODELO_CLAUDE_RESERVA
     _log(f"  resposta recebida em {time.time()-t0:.1f}s ({len(texto_resp)} chars)")
     return json.loads(_extrair_json(texto_resp))
 
@@ -414,10 +467,108 @@ def _aplicar_defaults_externos(obj):
     return obj
 
 
+# -----------------------------------------------------------------------------
+# Correcoes DETERMINISTICAS dos bens (codigo, nao LLM), contra o texto da escritura.
+# Nasceram da 2a leva de reportes (nov/2026): o LLM as vezes poe o numero do artigo
+# como descricao de um predio omisso, texto descritivo na descricao predial, ou
+# esquece o 2o artigo de um predio. Aqui corrige-se o que da para corrigir com
+# certeza e o resto vira aviso (modelos._avisos_bens).
+# -----------------------------------------------------------------------------
+def _norm(s: str | None) -> str:
+    """minusculas, sem acentos, espacos colapsados (o .doc parte linhas a meio)."""
+    return re.sub(r"\s+", " ", _sem_acentos(s or "").lower())
+
+
+_RE_ARTIGOS = re.compile(
+    r"\bsob\s+os?\s+artigos?\s+(?:matriciais?\s+)?(?:urbanos?\s+|rusticos?\s+)?"
+    r"(.{0,80}?)(?=,|;|\(|\scom\s|\.\s|$)"
+)
+_RE_CERTIDAO = re.compile(r"PP-\d{4}-\d{5}-\d{6}-(\d{6})", re.IGNORECASE)
+
+
+def artigos_no_texto(texto: str) -> list[str]:
+    """Artigos matriciais citados ('inscrito na matriz sob o(s) artigo(s) X e Y').
+    Ignora a seccao ('30.º seccao P1-P2' -> so '30') e o artigo de origem entre
+    parenteses ('2963.º (que proveio do artigo 146.º)' -> so '2963')."""
+    vistos: list[str] = []
+    for m in _RE_ARTIGOS.finditer(_norm(texto)):
+        trecho = re.split(r"seccao", m.group(1))[0]
+        for num in re.findall(r"\bp?\d+\b", trecho):
+            if num.upper() not in vistos:
+                vistos.append(num.upper())
+    return vistos
+
+
+def descricao_da_certidao(certidao: str | None) -> str | None:
+    """O ultimo bloco da Certidao Predial Permanente e' o numero da descricao
+    (PP-3522-60025-101102-005288 -> '5288'). Confirmado nos 7 reportes de nov/2026."""
+    m = _RE_CERTIDAO.search(certidao or "")
+    return str(int(m.group(1))) if m else None
+
+
+def _paragrafo_do_artigo(paragrafos: list[str], numeros: list[str]) -> str | None:
+    for p in paragrafos:
+        for n in numeros:
+            if re.search(rf"\bartigos?\b.{{0,40}}?\b{re.escape(n)}\b", p):
+                return p
+    return None
+
+
+def corrigir_bens(obj, texto: str) -> None:
+    """Corrige os bens do ato (in place) com regras certas, lidas do texto."""
+    bens = getattr(obj, "bens", None)
+    if bens is None:
+        return
+    obj.artigos_na_escritura = artigos_no_texto(texto)
+    t = _norm(texto)
+    obj.bem_em_comum = "em comum e sem determinacao de parte" in t
+    paragrafos = [_norm(p) for p in re.split(r"-{3,}", texto or "")]
+
+    for b in bens:
+        b.codigo_simn = None  # interno do SIMN, nunca vem da escritura
+
+        # Artigo: so o numero ('8608.º' -> '8608'); '30.º seccao P1-P2' -> artigo+seccao.
+        art = (b.artigo_matricial or "").strip()
+        m = re.fullmatch(r"(P?\d+)\s*\.?\s*º?\s*(?:,?\s*sec[cç][aã]o\s+(\S+))?", art, re.I)
+        if m:
+            b.artigo_matricial = m.group(1).upper()
+            if m.group(2) and not b.seccao:
+                b.seccao = m.group(2).upper()
+
+        numeros = re.findall(r"p?\d+", (b.artigo_matricial or "").lower())
+        par = _paragrafo_do_artigo(paragrafos, numeros) if numeros else None
+
+        # Seccao escrita no texto a seguir ao artigo ('artigo 30.º seccao P1-P2').
+        if par and not b.seccao:
+            for n in numeros:
+                ms = re.search(rf"\b{re.escape(n)}\b\s*\.?\s*º?\s*,?\s*seccao\s+([a-z0-9][a-z0-9/-]*)", par)
+                if ms:
+                    b.seccao = ms.group(1).upper()
+                    break
+
+        # Omisso: o paragrafo do bem diz 'omisso na Conservatoria' -> nao ha descricao.
+        if par and re.search(r"omisso na conservatoria|nao (?:esta |se encontra )?descrito", par):
+            b.descricao_predial = "omisso"
+            continue
+
+        # Descricao predial: so o numero. '1746/Cela' -> '1746'. Texto -> tirar da certidao.
+        d = (b.descricao_predial or "").strip()
+        if d.lower() == "omisso":
+            continue
+        md = re.fullmatch(r"(\d+)\s*(?:/.*)?", d)
+        if md:
+            b.descricao_predial = md.group(1)
+        else:
+            if d and not b.descricao_livre:
+                b.descricao_livre = d
+            b.descricao_predial = descricao_da_certidao(b.certidao_predial)
+
+
 def extrair_compra_venda(texto: str, modelo: str | None = None) -> CompraVenda:
     dados = _chamar_llm(texto, PROMPT_SISTEMA, modelo)
     _log("A validar com schema Pydantic...")
     cv = CompraVenda(**dados)
+    corrigir_bens(cv, texto)
     cv.herdar_heranca_do_primeiro()  # heranca: naturalidade/morada/estado civil do 1o outorgante
     _aplicar_defaults_externos(cv)
     cv.avisos = cv.validar_e_avisar()
@@ -438,7 +589,8 @@ Devolves APENAS um objeto JSON valido, sem texto antes/depois e sem ```:
                 "doc_identificacao": "...", "quota_parte": "1/1"}],
   "donatarios": [ ... igual aos doadores ... ],
   "bens": [{"designacao_fracao": null, "descricao_predial": "...",
-            "certidao_predial": "...", "artigo_matricial": "...",
+            "certidao_predial": "...", "artigo_matricial": "...", "seccao": null,
+            "data_inscricao_matriz": null,
             "freguesia": "...", "concelho": "...", "tipo": "U",
             "valor_patrimonial": 100000.0, "morada": "...",
             "codigo_simn": null, "descricao_livre": "..."}],
@@ -453,17 +605,24 @@ Regras:
 - Identifica pelo papel ("doa a sua filha" => filha e donataria).
 - Casais: dois outorgantes SO se ambos forem parte do ato; se so um for parte, UM outorgante
   com conjuge_de_nif a apontar para o conjuge (NAO cries o conjuge como outorgante separado).
+  Como saber: le o VERBO e o PLURAL. "DOA AOS SEGUNDOS outorgantes" / "aceitam a doacao" com um
+  casal no bloco Segundo => AMBOS os conjuges sao donatarios (dois outorgantes, cada um com o
+  seu NIF). "ela, com o consentimento do marido, DOA" => SO ela e' doadora (o marido so da
+  consentimento: e_externo=true, qualidade="Consentimento").
+- REPRESENTACAO: "X, na qualidade de procurador de Y" -> Y e' o doador/donatario; X entra com
+  e_externo=true, qualidade="Procurador".
 - naturalidade_concelho / naturalidade_freguesia: separa Concelho e Freguesia; se so vier a
   freguesia, infere o concelho. estado_civil e naturalidade sao obrigatorios no SIMN.
 - valor_atribuido: valor declarado para efeitos fiscais (Imposto do Selo).
 - Se nao encontrares, poe null. Nunca inventes.
-"""
+""" + _REGRAS_BENS
 
 
 def extrair_doacao(texto: str, modelo: str | None = None) -> Doacao:
     dados = _chamar_llm(texto, PROMPT_DOACAO, modelo)
     _log("A validar com schema Doacao...")
     d = Doacao(**dados)
+    corrigir_bens(d, texto)
     _aplicar_defaults_externos(d)
     d.avisos = d.validar_e_avisar()
     _log(f"  validacao OK. {len(d.avisos)} aviso(s) gerado(s).")
@@ -573,13 +732,14 @@ Regras:
 - valor_total_acervo: soma dos valores atribuidos aos bens, se mencionada.
 - tornas: compensacao monetaria entre partilhantes (se alguem leva mais bens e paga a diferenca).
 - Se nao encontrares um campo concreto, poe esse campo a null. Nunca inventes.
-"""
+""" + _REGRAS_BENS
 
 
 def extrair_partilha(texto: str, modelo: str | None = None) -> Partilha:
     dados = _chamar_llm(texto, PROMPT_PARTILHA, modelo)
     _log("A validar com schema Partilha...")
     p = Partilha(**dados)
+    corrigir_bens(p, texto)
     _aplicar_defaults_externos(p)
     p.avisos = p.validar_e_avisar()
     _log(f"  validacao OK. {len(p.avisos)} aviso(s) gerado(s).")
@@ -650,13 +810,14 @@ Regras:
   descricao_predial ("omisso" se o texto disser omisso), artigo_matricial, freguesia, concelho,
   tipo ("R" se rustico, "U" se urbano), valor_patrimonial, morada, descricao_livre.
 - NIF: remove espacos. Se nao encontrares um campo, poe null. NUNCA inventes.
-"""
+""" + _REGRAS_BENS
 
 
 def extrair_justificacao(texto: str, modelo: str | None = None) -> Justificacao:
     dados = _chamar_llm(texto, PROMPT_JUSTIFICACAO, modelo)
     _log("A validar com schema Justificacao...")
     j = Justificacao(**dados)
+    corrigir_bens(j, texto)
     _aplicar_defaults_externos(j)
     j.avisos = j.validar_e_avisar()
     _log(f"  validacao OK. {len(j.avisos)} aviso(s) gerado(s).")

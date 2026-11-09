@@ -386,7 +386,8 @@ def render_sidebar(obj, nome_ficheiro):
             modelo = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
             tem_chave = bool(os.environ.get("GROQ_API_KEY"))
         elif provedor in ("claude", "anthropic"):
-            modelo = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
+            import extrator as _ex
+            modelo = _ex.ultimo_modelo or _ex.modelo_claude_configurado()
             tem_chave = bool(os.environ.get("ANTHROPIC_API_KEY"))
         else:
             modelo = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
@@ -869,12 +870,16 @@ def editar_bem(indice, b):
     b.freguesia = _vazio_para_none(c1.text_input("Freguesia", b.freguesia or "", key=k("freg")))
     b.concelho = _vazio_para_none(c2.text_input("Concelho", b.concelho or "", key=k("conc")))
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns([2, 2, 1])
     b.descricao_predial = _vazio_para_none(
         c1.text_input("Descrição predial", b.descricao_predial or "", key=k("desc"))
     )
     b.artigo_matricial = _vazio_para_none(
         c2.text_input("Artigo matricial", b.artigo_matricial or "", key=k("art"))
+    )
+    b.seccao = _vazio_para_none(
+        c3.text_input("Secção", b.seccao or "", key=k("secc"),
+                      help="Secção cadastral do rústico (ex: P1-P2). Vazio se não houver.")
     )
 
     # Data de inscrição na matriz: obrigatória no SIMN só quando o artigo começa por "P".

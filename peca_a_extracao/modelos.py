@@ -268,6 +268,10 @@ class Bem(_Base):
         None, description="Codigo da Certidao Predial Permanente, ex: PP-...."
     )
     artigo_matricial: Optional[str] = Field(None, description="Artigo matricial, ex: '2363'.")
+    seccao: Optional[str] = Field(
+        None, description="Seccao cadastral do artigo rustico, ex 'P1-P2' (de 'artigo 30.º "
+                          "secção P1-P2'). Campo 'Secção' do SIMN."
+    )
     freguesia: Optional[str] = None
     concelho: Optional[str] = None
     tipo: Optional[str] = Field(None, description="'U' urbano, 'R' rustico.")
@@ -339,6 +343,52 @@ class _Acto(_Base):
     natureza_acto: Optional[str] = Field(
         None, description="Natureza do acto para os externos (dropdown de escrita no SIMN)."
     )
+    # Factos lidos do TEXTO da escritura por codigo (nao pelo LLM), na extracao.
+    # Servem para os avisos se recalcularem quando a funcionaria edita os bens.
+    artigos_na_escritura: list[str] = Field(
+        default_factory=list,
+        description="Artigos matriciais citados no texto ('sob o(s) artigo(s) ...'). "
+                    "Cada artigo e' um bem no SIMN.",
+    )
+    bem_em_comum: bool = Field(
+        False, description="True se o texto diz 'em comum e sem determinacao de parte' "
+                           "(normalmente bem de heranca indivisa)."
+    )
+
+
+def _artigos_dos_bens(bens: list["Bem"]) -> set[str]:
+    """Numeros de artigo (minusculas) presentes nos bens. Aceita 'U:207 / R:741'."""
+    import re
+    achados: set[str] = set()
+    for b in bens:
+        achados.update(re.findall(r"p?\d+", (b.artigo_matricial or "").lower()))
+    return achados
+
+
+def _avisos_bens(bens: list["Bem"], acto: "_Acto") -> list[str]:
+    """Avisos comuns a qualquer ato com bens (CV, doacao, partilha, justificacao)."""
+    import re
+    avisos: list[str] = []
+    faltam = [a for a in acto.artigos_na_escritura if a.lower() not in _artigos_dos_bens(bens)]
+    if faltam:
+        avisos.append(
+            "Artigo(s) " + ", ".join(faltam) + " aparece(m) na escritura mas nao esta(o) em "
+            "nenhum bem. No SIMN cada artigo e' um bem: confirmar."
+        )
+    for b in bens:
+        f = re.sub(r"\s+", " ", b.freguesia or "").strip().lower()
+        if f and (f.startswith(("união", "uniao")) or "," in f or " e " in f" {f} "):
+            avisos.append(
+                f"Freguesia do bem e' uma uniao ('{b.freguesia}'): o robo deixa a Freguesia "
+                "em branco no SIMN, escolher a uniao a mao (NAO a freguesia antiga)."
+            )
+        d = (b.descricao_predial or "").strip()
+        if d and d.lower() != "omisso" and not re.fullmatch(r"\d+(\s*/.*)?", d):
+            avisos.append(
+                f"Descricao predial invalida no bem do artigo {b.artigo_matricial or '?'} "
+                f"('{d[:40]}'): deve ser so o numero na Conservatoria ou 'omisso'."
+            )
+    return avisos
 
 
 class CompraVenda(_Acto):
@@ -439,6 +489,12 @@ class CompraVenda(_Acto):
 
         if not self.bens:
             avisos.append("Nenhum bem detetado.")
+        avisos += _avisos_bens(self.bens, self)
+        if self.bem_em_comum and not (self.heranca and self.heranca.nif):
+            avisos.append(
+                "Bem registado 'em comum e sem determinacao de parte' (normalmente heranca "
+                "indivisa): confirmar se o vendedor e' a Heranca."
+            )
         for b in self.bens:
             if b.descricao_predial and "omisso" in b.descricao_predial.lower():
                 avisos.append("Bem omisso na Conservatoria detetado, confirmar como entra no SIMN.")
@@ -494,6 +550,7 @@ class Doacao(_Acto):
         avisos += _avisos_outorgantes("Donatario", self.donatarios)
         if not self.bens:
             avisos.append("Nenhum bem detetado.")
+        avisos += _avisos_bens(self.bens, self)
         if self.valor_atribuido is None:
             avisos.append("Valor atribuido a doacao nao detetado, confirmar (afeta Imposto do Selo).")
         return avisos
@@ -595,6 +652,7 @@ class Partilha(_Acto):
             avisos.append("Nenhum bem detetado.")
         elif len(self.bens) > 5:
             avisos.append(f"{len(self.bens)} bens detetados, confirmar lista completa.")
+        avisos += _avisos_bens(self.bens, self)
         if self.tipo_partilha == "hereditaria" and not self.autor_heranca:
             avisos.append("Partilha hereditaria sem autor da heranca identificado.")
         if self.tornas and self.tornas > 0:
@@ -662,6 +720,7 @@ class Justificacao(_Acto):
             avisos.append("Nenhum confirmante (testemunha) detetado, confirmar.")
         if not self.bens:
             avisos.append("Nenhum bem detetado.")
+        avisos += _avisos_bens(self.bens, self)
         return avisos
 
 
